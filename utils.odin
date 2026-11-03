@@ -56,10 +56,19 @@ new_str :: proc(s: string) -> ^Exp {
 	return exp
 }
 
-new_structured_list :: proc(args: [dynamic]^Exp) -> ^Exp {
+new_list :: proc(args: [dynamic]^Exp) -> ^Exp {
 	exp := new(Exp)
 	exp^ = ExpList {
 		list = args,
+	}
+	return exp
+}
+
+new_cons :: proc(car: ^Exp, cdr: ^Exp) -> ^Exp {
+	exp := new(Exp)
+	exp^ = ExpCons {
+		car = car,
+		cdr = cdr,
 	}
 	return exp
 }

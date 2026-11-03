@@ -33,6 +33,11 @@ ExpList :: struct {
 	list: [dynamic]^Exp,
 }
 
+ExpCons :: struct {
+	car: ^Exp,
+	cdr: ^Exp,
+}
+
 ExpProc :: struct {
 	pro: LispProc,
 }
@@ -51,6 +56,7 @@ Exp :: union {
 	ExpTrue,
 	ExpNil,
 	ExpList,
+	ExpCons,
 	ExpProc,
 	ExpLambda,
 }
@@ -79,6 +85,8 @@ exp_to_string :: proc(exp: ^Exp) -> string {
 		}
 		strings.write_string(&sb, ")")
 		return strings.to_string(sb)
+	case ExpCons:
+		return fmt.tprintf("(%s . %s)", exp_to_string(e.car), exp_to_string(e.cdr))
 	case ExpTrue:
 		return "T"
 	case ExpNil:

@@ -29,8 +29,12 @@ standard_env :: proc() -> ^Env {
 	env.bindings["max"] = new_proc(max)
 	env.bindings["min"] = new_proc(min)
 	env.bindings["round"] = new_proc(round)
+
+	env.bindings["list"] = new_proc(list)
+	env.bindings["listp"] = new_proc(listp)
 	env.bindings["car"] = new_proc(car)
-	// env.bindings["cons"] = new_proc(cons)
+	env.bindings["cons"] = new_proc(cons)
+	env.bindings["append"] = new_proc(append_)
 
 	return env
 }
@@ -390,6 +394,33 @@ round :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
 }
 
 @(private = "file")
+list :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
+	// list: Create a new list containing all the arguments as its elements
+	// Example (list 1 2 3) -> (1, 2, 3)
+	if len(args) == 0 {
+		return new_nil(), ""
+	}
+	return new_list(args), ""
+}
+
+@(private = "file")
+
+listp :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
+	// list?: Returns T if the argument is a list, and NIL otherwise
+	// Example (listp (list 1 2 3)) -> T, (listp (list)) -> T, (listp 42) -> NIL
+	if len(args) != 1 {
+		return nil, fmt.tprintf("invalid number of arguments: %d", len(args))
+	}
+	if li, is_list := args[0].(ExpList); is_list {
+		return new_true(), ""
+	}
+	if ni, is_nil := args[0].(ExpNil); is_nil {
+		return new_true(), ""
+	}
+	return new_nil(), ""
+}
+
+@(private = "file")
 car :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
 	// car: Returns the first element of the list
 	// Example: (car (list 1 2 3)) -> 1
@@ -412,10 +443,58 @@ car :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
 			exp_to_string(li.list[0]),
 		)
 	}
-	// TODO
-	return args[0], ""
+	return li.list[0], ""
 }
 
-// @(private = "file")
-// cons :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
-// }
+@(private = "file")
+cons :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
+	// cons: Add an element to the beginning of the list
+	// Example: (cons 1 '(2 3)) -> (1 2 3)
+	//          (cons 1 2)      -> (1 . 2)
+	//          (cons 1 (list)) -> (1)
+	//          (cons 1 NIL)    -> (1)
+	if len(args) != 2 {
+		return nil, fmt.tprintf("invalid number of arguments: %d", len(args))
+	}
+	if ni, is_nil := args[1].(ExpNil); is_nil {
+		new_li: [dynamic]^Exp
+		append(&new_li, args[0])
+		return new_list(new_li), ""
+	}
+	return new_cons(args[0], args[1]), ""
+}
+
+@(private = "file")
+append_ :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
+	// append: Combine multiple lists into one list
+	// Example: (append (list 1 2) (list 3 4))    -> (1 2 3 4)
+	//          (append (list 1) (list) (list 2)) -> (1 2)
+	//          (append)                          -> NIL
+	if len(args) == 0 {
+		return new_nil(), ""
+	}
+
+	new_li: [dynamic]^Exp
+
+	for arg in args {
+		#partial switch s in arg {
+		case ExpNil:
+			// Skip NIL (empty list) so that it does not affect the concatenation
+			continue
+		case ExpList:
+			for item in s.list {
+				append(&new_li, item)
+			}
+		case:
+			// If adhering strictly to specifications like those of Common Lisp,
+			// the final argument can be an atom, forming a dotted pair; however, for the sake of simplicity,
+			// we will initially limit this to the concatenation of lists.
+			return nil, fmt.tprintf("The value %s is not of type LIST", exp_to_string(arg))
+		}
+	}
+
+	if len(new_li) == 0 {
+		return new_nil(), ""
+	}
+	return new_list(new_li), ""
+}

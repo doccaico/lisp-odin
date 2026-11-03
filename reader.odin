@@ -167,7 +167,7 @@ read_list :: proc(r: ^Reader) -> (^Exp, string) {
 	// Consume ')'
 	next_char(r)
 
-	return new_structured_list(list_elements), ""
+	return new_list(list_elements), ""
 }
 
 @(private = "file")
