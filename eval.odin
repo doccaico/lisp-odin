@@ -1,0 +1,110 @@
+package main
+
+import "core:fmt"
+
+eval :: proc(exp: ^Exp, env: ^Env) -> (^Exp, string) {
+	#partial switch e in exp {
+	case ExpSymbol:
+		if target_env := find_env(env, e.sym); target_env != nil {
+			return target_env.bindings[e.sym], ""
+		} else {
+			return nil, fmt.tprintf("undefined symbol: %s", exp_to_string(exp))
+		}
+	case ExpNumber, ExpFloat, ExpString, ExpProc, ExpLambda, ExpTrue, ExpNil:
+		return exp, ""
+	case ExpList:
+		if len(e.list) == 0 {
+			return exp, ""
+		}
+		first := e.list[0]
+		if symbol, ok := first.(ExpSymbol); ok {
+
+			if symbol.sym == "if" { 	// (if test conseq alt)
+				if len(e.list) != 4 {
+					return nil, fmt.tprintf(
+						"if requires exactly 3 arguments (test conseq alt), got %d",
+						len(e.list) - 1,
+					)
+				}
+				test := e.list[1]
+				conseq := e.list[2]
+				alt := e.list[3]
+				test_res, test_res_err_msg := eval(test, env)
+				if test_res_err_msg != "" {
+					return nil, test_res_err_msg
+				}
+				is_true: bool
+				#partial switch tr in test_res {
+				case ExpNumber:
+					is_true = tr.num != 0
+				case ExpFloat:
+					is_true = tr.flo != 0.0
+				case ExpList:
+					is_true = len(tr.list) > 0
+				case:
+					is_true = true
+				}
+				if is_true {
+					return eval(conseq, env)
+				} else {
+					return eval(alt, env)
+				}
+			} else if symbol.sym == "define" { 	// (define symbol exp)
+			} else if symbol.sym == "quote" { 	// (quote exp)
+			} else if symbol.sym == "set!" { 	// (set! symbol exp)
+			} else if symbol.sym == "lambda" { 	// (lambda (params...) body)
+			} else if symbol.sym == "apply" { 	// (apply proc list)
+			}
+
+		}
+
+		procedure: ^Exp
+		msg: string
+		ok: bool
+		if procedure, msg = eval(first, env); msg != "" {
+			return nil, msg
+		}
+		args := make([dynamic]^Exp)
+		for i in 1 ..< len(e.list) {
+			if p, m := eval(e.list[i], env); m != "" {
+				return nil, m
+			} else {
+				append(&args, p)
+			}
+		}
+		return invoke(procedure, args)
+	}
+
+	// return nil
+	unreachable()
+}
+
+@(private = "file")
+invoke :: proc(procedure: ^Exp, args: [dynamic]^Exp) -> (^Exp, string) {
+	#partial switch p in procedure {
+	case ExpProc:
+		if res, err_msg := p.pro(args); err_msg != "" {
+			return nil, err_msg
+		} else {
+			return res, ""
+		}
+	case ExpLambda:
+		if len(args) != len(p.params) {
+			return nil, fmt.tprintf(
+				"wrong number of arguments: expected %d, got %d",
+				len(p.params),
+				len(args),
+			)
+		}
+		new_env := new(Env)
+		new_env.outer = p.closure
+		new_env.bindings = make(map[string]^Exp)
+		for i in 0 ..< len(p.params) {
+			new_env.bindings[p.params[i]] = args[i]
+		}
+		return eval(p.body, new_env)
+	case:
+		return nil, fmt.tprintf("not a procedure or lambda: %s", exp_to_string(procedure))
+	}
+	unreachable()
+}
