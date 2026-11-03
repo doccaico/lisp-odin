@@ -35,6 +35,8 @@ standard_env :: proc() -> ^Env {
 	env.bindings["car"] = new_proc(car)
 	env.bindings["cons"] = new_proc(cons)
 	env.bindings["append"] = new_proc(append_)
+	env.bindings["null"] = new_proc(nullp)
+	env.bindings["progn"] = new_proc(progn)
 
 	return env
 }
@@ -497,4 +499,45 @@ append_ :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
 		return new_nil(), ""
 	}
 	return new_list(new_li), ""
+}
+
+@(private = "file")
+nullp :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
+	// null: Returns T if the list is empty (contains 0 elements), and 0 (false) otherwise
+	// Example: (null (list))   -> T
+	//          (null NIL)      -> T
+	//          (null (list 1)) -> NIL
+	//          (null 42)       -> NIL
+	if len(args) != 1 {
+		return nil, fmt.tprintf("invalid number of arguments: %d", len(args))
+	}
+	ni: ExpNil
+	is_nil := false
+	if ni, is_nil = args[0].(ExpNil); is_nil {
+		is_nil = true
+	}
+	if is_nil {
+		return new_true(), ""
+	}
+	return new_nil(), ""
+}
+
+// TODO
+@(private = "file")
+progn :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
+	// progn: Evaluates the arguments in order, then evaluates and returns the final element
+	if len(args) == 0 {
+		return new_nil(), ""
+	}
+
+	last_result: ^Exp = nil
+
+	for form in args {
+		err: string
+		last_result, err = eval(form)
+		if err != "" {
+			return nil, err
+		}
+	}
+	return last_result, ""
 }
