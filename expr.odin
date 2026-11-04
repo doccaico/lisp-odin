@@ -78,7 +78,7 @@ exp_to_string :: proc(exp: ^Exp) -> string {
 		strings.write_string(&sb, "(")
 		for item, i in e.list {
 			if i > 0 {
-				strings.write_string(&sb, ", ")
+				strings.write_string(&sb, " ")
 			}
 			item_str := exp_to_string(item)
 			strings.write_string(&sb, item_str)

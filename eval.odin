@@ -97,7 +97,11 @@ eval :: proc(exp: ^Exp, env: ^Env) -> (^Exp, string) {
 				filename: string
 				#partial switch arg in e.list[1] {
 				case ExpSymbol:
-					filename = arg.sym
+					if s, ok := env.bindings[arg.sym].(ExpString); !ok {
+						return nil, fmt.tprintf("%s is not string type", arg.sym)
+					} else {
+						filename = s.str
+					}
 				case ExpString:
 					filename = arg.str
 				}
@@ -133,10 +137,102 @@ eval :: proc(exp: ^Exp, env: ^Env) -> (^Exp, string) {
 				return last_result, ""
 
 			} else if symbol.sym == "define" { 	// (define symbol exp)
+				if len(e.list) != 3 {
+					return nil, "define requires exactly 2 argument"
+				}
+				if _, ok := e.list[1].(ExpSymbol); !ok {
+					return nil, fmt.tprintf(
+						"the argument to define, %s, is not a symbol",
+						exp_to_string(e.list[1]),
+					)
+				}
+				define_sym := e.list[1].(ExpSymbol).sym
+				define_expr := e.list[2]
+
+				define_err: string
+				env.bindings[define_sym], define_err = eval(define_expr, env)
+				if define_err != "" {
+					return nil, define_err
+				}
+				return new_symbol(define_sym), ""
+
 			} else if symbol.sym == "quote" { 	// (quote exp)
+				if len(e.list) != 2 {
+					return nil, "quote requires exactly 1 argument"
+				}
+				return e.list[1], ""
+
 			} else if symbol.sym == "set!" { 	// (set! symbol exp)
-			} else if symbol.sym == "lambda" { 	// (lambda (params...) body)
+				if len(e.list) != 3 {
+					return nil, "set! requires exactly 2 argument"
+				}
+				if _, ok := e.list[1].(ExpSymbol); !ok {
+					return nil, fmt.tprintf(
+						"the argument to set!, %s, is not a symbol",
+						exp_to_string(e.list[1]),
+					)
+				}
+				set_sym := e.list[1].(ExpSymbol).sym
+				set_expr := e.list[2]
+				target_env := find_env(env, set_sym)
+				if target_env != nil {
+					set_err: string
+					target_env.bindings[set_sym], set_err = eval(set_expr, env)
+					if set_err != "" {
+						return nil, set_err
+					}
+					return new_symbol(set_sym), ""
+				} else {
+					return nil, fmt.tprintf("undefined symbol for set!: %s", symbol)
+				}
+
+			} else if symbol.sym == "lambda" { 	// (lambda (params...) body...)
+				if len(e.list) < 3 {
+					return nil, "lambda requires at least a parameter list and a body"
+				}
+				param_list := e.list[1]
+				if _, ok := param_list.(ExpList); !ok {
+					return nil, "lambda parameters must be a list"
+				}
+				params: [dynamic]string
+				for param in param_list.(ExpList).list {
+					if _, ok := param.(ExpSymbol); !ok {
+						return nil, "lambda parameter must be a symbol"
+					}
+					append(&params, param.(ExpSymbol).sym)
+				}
+
+				// Implicit progn
+				body: ^Exp = nil
+
+				if len(e.list) == 3 {
+					body = e.list[2]
+				} else {
+					progn_list: [dynamic]^Exp
+					append(&progn_list, new_symbol("progn"))
+					for i := 2; i < len(e.list); i += 1 {
+						append(&progn_list, e.list[i])
+					}
+					body = new_list(progn_list)
+				}
+				return new_lambda(params, body, env), ""
+
 			} else if symbol.sym == "apply" { 	// (apply proc list)
+				if len(e.list) != 3 {
+					return nil, "apply requires exactly 2 arguments (a procedure and a list)"
+				}
+				procedure, pro_err := eval(e.list[1], env)
+				if pro_err != "" {
+					return nil, pro_err
+				}
+				list_expr, list_expr_err := eval(e.list[2], env)
+				if list_expr_err != "" {
+					return nil, list_expr_err
+				}
+				if _, ok := list_expr.(ExpList); !ok {
+					return nil, "second argument to apply must be a list"
+				}
+				return invoke(procedure, list_expr.(ExpList).list)
 			}
 
 		}

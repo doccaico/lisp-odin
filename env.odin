@@ -33,6 +33,7 @@ standard_env :: proc() -> ^Env {
 	env.bindings["list"] = new_proc(list)
 	env.bindings["listp"] = new_proc(listp)
 	env.bindings["car"] = new_proc(car)
+	env.bindings["cdr"] = new_proc(cdr)
 	env.bindings["cons"] = new_proc(cons)
 	env.bindings["append"] = new_proc(append_)
 	env.bindings["null"] = new_proc(nullp)
@@ -45,15 +46,13 @@ standard_env :: proc() -> ^Env {
 	env.bindings["functionp"] = new_proc(functionp)
 	env.bindings["symbolp"] = new_proc(symbolp)
 
-	// env.bindings[":load"] = new_proc(repl_load)
-
 	return env
 }
 
 find_env :: proc(env: ^Env, name: string) -> ^Env {
 	current := env
 	for current != nil {
-		if val, ok := env.bindings[name]; ok {
+		if val, ok := current.bindings[name]; ok {
 			return current
 		}
 		current = current.outer
@@ -447,14 +446,33 @@ car :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
 	if len(li.list) == 0 {
 		return new_nil(), ""
 	}
-
 	if !is_list {
-		return nil, fmt.tprintf(
-			"The value %s is not of type LIST when binding LIST",
-			exp_to_string(li.list[0]),
-		)
+		return nil, "car requires a list"
 	}
 	return li.list[0], ""
+}
+
+@(private = "file")
+cdr :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
+	// cdr: Return the elements other than the first one as a new list
+	// Example: (cdr '(1 2 3)) -> (2 3)
+	if len(args) != 1 {
+		return nil, fmt.tprintf("invalid number of arguments: %d", len(args))
+	}
+	// li: ExpList
+	// is_list := false
+	if _, ok := args[0].(ExpList); !ok {
+
+		return nil, "cdr requires a list"
+	}
+	li := args[0].(ExpList).list
+
+	if len(li) == 0 {
+		return new_nil(), ""
+	}
+	pop_front(&li)
+
+	return new_list(li), ""
 }
 
 @(private = "file")

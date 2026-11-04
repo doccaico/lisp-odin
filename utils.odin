@@ -72,3 +72,13 @@ new_proc :: proc(p: LispProc) -> ^Exp {
 	}
 	return exp
 }
+
+new_lambda :: proc(params: [dynamic]string, body: ^Exp, closure: ^Env) -> ^Exp {
+	exp := new(Exp)
+	exp^ = ExpLambda {
+		params  = params,
+		body    = body,
+		closure = closure,
+	}
+	return exp
+}
