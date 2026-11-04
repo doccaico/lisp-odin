@@ -37,6 +37,7 @@ standard_env :: proc() -> ^Env {
 	env.bindings["append"] = new_proc(append_)
 	env.bindings["null"] = new_proc(nullp)
 	env.bindings["print"] = new_proc(print)
+	env.bindings["equal"] = new_proc(equal)
 
 	return env
 }
@@ -266,6 +267,7 @@ lte :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
 
 @(private = "file")
 eq :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
+	// eq: Comparison for numeric values only
 	if len(args) == 0 {
 		return nil, "invalid number of arguments: 0"
 	}
@@ -522,7 +524,6 @@ nullp :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
 	return new_nil(), ""
 }
 
-// TODO
 @(private = "file")
 print :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
 	// print: print out
@@ -530,6 +531,70 @@ print :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
 		return nil, "invalid number of arguments: 0"
 	}
 	fmt.println(exp_to_string(args[0]))
-
+	// fmt.println(type_info_of(typeid_of(type_of(args[0]^))))
 	return args[0], ""
+}
+
+is_equal :: proc(a: ^Exp, b: ^Exp) -> bool {
+	if a == b {
+		return true
+	}
+
+	#partial switch v_a in a {
+	case ExpSymbol:
+		v_b, ok := b^.(ExpSymbol)
+		if !ok {return false}
+		return v_a.sym == v_b.sym
+	case ExpNumber:
+		v_b, ok := b^.(ExpNumber)
+		if !ok {return false}
+		return v_a.num == v_b.num
+	case ExpFloat:
+		v_b, ok := b^.(ExpFloat)
+		if !ok {return false}
+		return v_a.flo == v_b.flo
+	case ExpString:
+		v_b, ok := b^.(ExpString)
+		if !ok {return false}
+		return v_a.str == v_b.str
+	case ExpProc, ExpLambda:
+		return a == b
+	case ExpNil:
+		v_b, ok := b^.(ExpNil)
+		if !ok {return false}
+		return true
+	case ExpTrue:
+		v_b, ok := b^.(ExpTrue)
+		if !ok {return false}
+		return true
+	case ExpCons:
+		v_b, ok := b^.(ExpCons)
+		if !ok {return false}
+		return is_equal(v_a.car, v_b.car) == is_equal(v_a.cdr, v_b.cdr)
+	case ExpList:
+		v_b, ok := b^.(ExpList)
+		if !ok {return false}
+
+		if len(v_a.list) != len(v_b.list) {return false}
+
+		for i in 0 ..< len(v_a.list) {
+			if !is_equal(v_a.list[i], v_b.list[i]) {
+				return false
+			}
+		}
+		return true
+	}
+	return false
+}
+
+@(private = "file")
+equal :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
+	// equal: Comparison of structure and content
+	if len(args) != 2 {
+		return nil, fmt.tprintf("invalid number of arguments: %d", len(args))
+	}
+	if is_equal(args[0], args[1]) {
+		return new_true(), ""
+	}
+	return new_nil(), ""
 }
