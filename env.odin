@@ -542,37 +542,37 @@ is_equal :: proc(a: ^Exp, b: ^Exp) -> bool {
 
 	#partial switch v_a in a {
 	case ExpSymbol:
-		v_b, ok := b^.(ExpSymbol)
+		v_b, ok := b.(ExpSymbol)
 		if !ok {return false}
 		return v_a.sym == v_b.sym
 	case ExpNumber:
-		v_b, ok := b^.(ExpNumber)
+		v_b, ok := b.(ExpNumber)
 		if !ok {return false}
 		return v_a.num == v_b.num
 	case ExpFloat:
-		v_b, ok := b^.(ExpFloat)
+		v_b, ok := b.(ExpFloat)
 		if !ok {return false}
 		return v_a.flo == v_b.flo
 	case ExpString:
-		v_b, ok := b^.(ExpString)
+		v_b, ok := b.(ExpString)
 		if !ok {return false}
 		return v_a.str == v_b.str
 	case ExpProc, ExpLambda:
 		return a == b
 	case ExpNil:
-		v_b, ok := b^.(ExpNil)
+		v_b, ok := b.(ExpNil)
 		if !ok {return false}
 		return true
 	case ExpTrue:
-		v_b, ok := b^.(ExpTrue)
+		v_b, ok := b.(ExpTrue)
 		if !ok {return false}
 		return true
 	case ExpCons:
-		v_b, ok := b^.(ExpCons)
+		v_b, ok := b.(ExpCons)
 		if !ok {return false}
 		return is_equal(v_a.car, v_b.car) == is_equal(v_a.cdr, v_b.cdr)
 	case ExpList:
-		v_b, ok := b^.(ExpList)
+		v_b, ok := b.(ExpList)
 		if !ok {return false}
 
 		if len(v_a.list) != len(v_b.list) {return false}
