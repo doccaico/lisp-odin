@@ -2,6 +2,7 @@ package main
 
 import "core:fmt"
 import "core:math"
+// import "core:os"
 
 Env :: struct {
 	outer:    ^Env,
@@ -38,6 +39,14 @@ standard_env :: proc() -> ^Env {
 	env.bindings["null"] = new_proc(nullp)
 	env.bindings["print"] = new_proc(print)
 	env.bindings["equal"] = new_proc(equal)
+	env.bindings["length"] = new_proc(length)
+	env.bindings["map"] = new_proc(map_)
+	env.bindings["not"] = new_proc(nullp) // same as null
+	env.bindings["numberp"] = new_proc(numberp)
+	env.bindings["functionp"] = new_proc(functionp)
+	env.bindings["symbolp"] = new_proc(symbolp)
+
+	// env.bindings[":load"] = new_proc(repl_load)
 
 	return env
 }
@@ -531,7 +540,6 @@ print :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
 		return nil, "invalid number of arguments: 0"
 	}
 	fmt.println(exp_to_string(args[0]))
-	// fmt.println(type_info_of(typeid_of(type_of(args[0]^))))
 	return args[0], ""
 }
 
@@ -598,3 +606,184 @@ equal :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
 	}
 	return new_nil(), ""
 }
+
+is_sequence :: proc(expr: ^Exp) -> bool {
+	#partial switch e in expr {
+	case ExpSymbol, ExpNumber, ExpFloat, ExpProc, ExpLambda, ExpTrue:
+		return false
+	case ExpList, ExpString, ExpCons:
+		return true
+	}
+	unimplemented("Reached the end of is_sequence()")
+}
+
+@(private = "file")
+length :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
+	// length: Returns the number of elements in the list
+	if len(args) != 1 {
+		return nil, fmt.tprintf("invalid number of arguments: %d", len(args))
+	}
+	if _, is_nil := args[0].(ExpNil); is_nil {
+		return new_int(0), ""
+	}
+	fmt.println(args[0])
+	if !is_sequence(args[0]) {
+		return nil, fmt.tprintf("The value %s is not of type SEQUENCE", exp_to_string(args[0]))
+	}
+	if cons, is_cons := args[0].(ExpCons); is_cons {
+		return nil, fmt.tprintf("The value %s is not of type LIST", exp_to_string(cons.cdr))
+	}
+	#partial switch arg in args[0] {
+	case ExpList:
+		return new_int(i64(len(arg.list))), ""
+	case ExpString:
+		return new_int(i64(len(arg.str))), ""
+	}
+	unimplemented("Reached the end of length()")
+}
+
+@(private = "file")
+map_ :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
+	// map: Returns a new list obtained by applying a procedure to each element of the list
+	if len(args) != 2 {
+		return nil, fmt.tprintf("invalid number of arguments: %d", len(args))
+	}
+
+	procedure := args[0]
+	list_expr := args[1]
+
+	is_proc := false
+	#partial switch _ in procedure {
+	case ExpProc, ExpLambda:
+		is_proc = true
+	}
+	if !is_proc {
+		return nil, fmt.tprintf("first argument to map must be a proc or lambda")
+	}
+	if _, is_list := list_expr.(ExpList); !is_list {
+		return nil, fmt.tprintf("second argument to map must be a list")
+	}
+
+	mapped_list: [dynamic]^Exp
+	for item in list_expr.(ExpList).list {
+		item_list: [dynamic]^Exp
+		append(&item_list, item)
+
+		expr, err := invoke(procedure, item_list)
+		if err != "" {
+			return nil, err
+		}
+		append(&mapped_list, expr)
+	}
+	return new_list(mapped_list), ""
+}
+
+@(private = "file")
+numberp :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
+	// numberp: Returns T if the argument is a number (an integer or a floating-point number), and NIL otherwise
+	// Example: (number? 42) -> T, (number? 3.14) -> T, (number? (quote a)) -> NIL
+	if len(args) != 1 {
+		return nil, fmt.tprintf("invalid number of arguments: %d", len(args))
+	}
+
+	is_num := false
+	#partial switch _ in args[0] {
+	case ExpNumber, ExpFloat:
+		is_num = true
+	}
+	if is_num {
+		return new_true(), ""
+	}
+	return new_nil(), ""
+}
+
+@(private = "file")
+functionp :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
+	// functionp: Returns T if the argument is a built-in function or a lambda, and NIL otherwise
+	// Example: (procedure? +) -> T, (procedure? (lambda (x) x)) -> T, (procedure? 42) -> NIL
+	if len(args) != 1 {
+		return nil, fmt.tprintf("invalid number of arguments: %d", len(args))
+	}
+
+	is_func := false
+	#partial switch _ in args[0] {
+	case ExpProc, ExpLambda:
+		is_func = true
+	}
+	if is_func {
+		return new_true(), ""
+	}
+	return new_nil(), ""
+}
+
+@(private = "file")
+symbolp :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
+	// symbolp: Returns T if the argument is a symbol, and NIL otherwise
+	// Example: (symbol? (quote foo)) -> T, (symbol? 42) -> NIL
+	if len(args) != 1 {
+		return nil, fmt.tprintf("invalid number of arguments: %d", len(args))
+	}
+
+	is_sym := false
+	#partial switch _ in args[0] {
+	case ExpSymbol:
+		is_sym = true
+	}
+	if is_sym {
+		return new_true(), ""
+	}
+	return new_nil(), ""
+}
+
+// @(private = "file")
+// repl_load :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
+// 	// load: Load and execute an external file (Lisp code)
+// 	// Example: (load "foo.scm")
+// 	is_filename := false
+// 	#partial switch _ in args[0] {
+// 	case ExpSymbol, ExpString:
+// 		is_filename = true
+// 	}
+//
+// 	if len(args) != 1 || !is_filename {
+// 		return nil, ":load requires exactly 1 argument (filename as a symbol or string)"
+// 	}
+//
+// 	filename: string
+// 	#partial switch arg in args[0] {
+// 	case ExpSymbol:
+// 		filename = arg.sym
+// 	case ExpString:
+// 		filename = arg.str
+// 	}
+//
+// 	data, read_err := os.read_entire_file(filename, context.allocator)
+// 	if read_err != nil {
+// 		return nil, fmt.tprintf("Cannot read a file: %s", filename)
+// 	}
+//
+// 	r := init_reader(string(data))
+//
+// 	for {
+// 		expr: ^Exp
+// 		msg: string
+// 		if expr, msg = read(&r); msg != "" {
+// 			fmt.println(msg)
+// 			os.exit(1)
+// 		}
+//
+// 		if expr == nil {
+// 			break
+// 		}
+//
+// 		// fmt.println(expr^)
+//
+// 		if expr, msg := eval(expr, global_env); msg != "" {
+// 			fmt.println(msg)
+// 			os.exit(1)
+// 		} else {
+// 			fmt.println(exp_to_string(expr))
+// 		}
+// 		free_all(context.temp_allocator)
+// 	}
+// }

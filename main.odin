@@ -23,6 +23,7 @@ main :: proc() {
 	defer vmem.arena_destroy(&arena)
 
 	context.allocator = arena_allocator
+	defer free_all(context.temp_allocator)
 
 	if len(os.args) == 1 || (os.args[1] == "-h" || os.args[1] == "--help") {
 		fmt.print(HELP_MESSAGE)
@@ -57,20 +58,13 @@ main :: proc() {
 			break
 		}
 
-		fmt.println(expr^)
-		// fmt.println(eval(ast, global_env))
+		// fmt.println(expr^)
+
 		if expr, msg := eval(expr, global_env); msg != "" {
 			fmt.println(msg)
 			os.exit(1)
-			// if is_repl {
-			// 	fmt.println(msg)
-			// } else {
-			// 	fmt.println(msg)
-			// 	os.exit(1)
-			// }
 		} else {
 			fmt.println(exp_to_string(expr))
 		}
-		free_all(context.temp_allocator)
 	}
 }

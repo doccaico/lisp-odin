@@ -1,6 +1,7 @@
 package main
 
 import "core:fmt"
+import "core:os"
 
 eval :: proc(exp: ^Exp, env: ^Env) -> (^Exp, string) {
 	#partial switch e in exp {
@@ -75,6 +76,62 @@ eval :: proc(exp: ^Exp, env: ^Env) -> (^Exp, string) {
 					}
 				}
 				return last_result, ""
+
+			} else if symbol.sym == ":load" { 	// (:load "examples\\demo.scm") or (load filename)
+				if len(e.list) <= 1 {
+					return nil,
+						":load requires exactly 1 argument (filename as a symbol or string)"
+				}
+
+				is_filename := false
+				#partial switch _ in e.list[1] {
+				case ExpSymbol, ExpString:
+					is_filename = true
+				}
+
+				if !is_filename {
+					return nil,
+						":load requires exactly 1 argument (filename as a symbol or string)"
+				}
+
+				filename: string
+				#partial switch arg in e.list[1] {
+				case ExpSymbol:
+					filename = arg.sym
+				case ExpString:
+					filename = arg.str
+				}
+
+				data, read_err := os.read_entire_file(filename, context.allocator)
+				if read_err != nil {
+					return nil, fmt.tprintf("Cannot read a file: %s", filename)
+				}
+
+				r := init_reader(string(data))
+
+				last_result: ^Exp = nil
+				err: string
+
+				for {
+					expr: ^Exp
+					msg: string
+					if expr, msg = read(&r); msg != "" {
+						fmt.println(msg)
+						return nil, ""
+					}
+
+					if expr == nil {
+						break
+					}
+
+					last_result, err = eval(expr, env)
+					if err != "" {
+						return nil, err
+					}
+
+				}
+				return last_result, ""
+
 			} else if symbol.sym == "define" { 	// (define symbol exp)
 			} else if symbol.sym == "quote" { 	// (quote exp)
 			} else if symbol.sym == "set!" { 	// (set! symbol exp)
@@ -105,7 +162,7 @@ eval :: proc(exp: ^Exp, env: ^Env) -> (^Exp, string) {
 	unreachable()
 }
 
-@(private = "file")
+// @(private = "file")
 invoke :: proc(procedure: ^Exp, args: [dynamic]^Exp) -> (^Exp, string) {
 	#partial switch p in procedure {
 	case ExpProc:
