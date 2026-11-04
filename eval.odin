@@ -49,6 +49,32 @@ eval :: proc(exp: ^Exp, env: ^Env) -> (^Exp, string) {
 				} else {
 					return eval(alt, env)
 				}
+			} else if symbol.sym == "progn" { 	// (progn (...) (...)...)
+				forms: [dynamic]^Exp
+
+				#partial switch li in exp {
+				case ExpList:
+					if len(li.list) <= 1 {
+						return new_nil(), ""
+					}
+					for i := 1; i < len(li.list); i += 1 {
+						append(&forms, li.list[i])
+					}
+				}
+
+				if len(forms) == 0 {
+					return new_nil(), ""
+				}
+
+				last_result: ^Exp = nil
+				for form in forms {
+					err: string
+					last_result, err = eval(form, env) // ここで初めて評価する！
+					if err != "" {
+						return nil, err
+					}
+				}
+				return last_result, ""
 			} else if symbol.sym == "define" { 	// (define symbol exp)
 			} else if symbol.sym == "quote" { 	// (quote exp)
 			} else if symbol.sym == "set!" { 	// (set! symbol exp)

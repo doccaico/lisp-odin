@@ -36,7 +36,7 @@ standard_env :: proc() -> ^Env {
 	env.bindings["cons"] = new_proc(cons)
 	env.bindings["append"] = new_proc(append_)
 	env.bindings["null"] = new_proc(nullp)
-	env.bindings["progn"] = new_proc(progn)
+	// env.bindings["progn"] = new_proc(progn)
 
 	return env
 }
@@ -523,21 +523,21 @@ nullp :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
 }
 
 // TODO
-@(private = "file")
-progn :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
-	// progn: Evaluates the arguments in order, then evaluates and returns the final element
-	if len(args) == 0 {
-		return new_nil(), ""
-	}
-
-	last_result: ^Exp = nil
-
-	for form in args {
-		err: string
-		last_result, err = eval(form)
-		if err != "" {
-			return nil, err
-		}
-	}
-	return last_result, ""
-}
+// @(private = "file")
+// progn :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
+// 	// progn: Evaluates the arguments in order, then evaluates and returns the final element
+// 	if len(args) == 0 {
+// 		return new_nil(), ""
+// 	}
+//
+// 	last_result: ^Exp = nil
+//
+// 	for form in args {
+// 		err: string
+// 		last_result, err = eval(form, env)
+// 		if err != "" {
+// 			return nil, err
+// 		}
+// 	}
+// 	return last_result, ""
+// }
