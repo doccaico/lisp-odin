@@ -40,7 +40,6 @@ standard_env :: proc() -> ^Env {
 	env.bindings["print"] = new_proc(print)
 	env.bindings["equal"] = new_proc(equal)
 	env.bindings["length"] = new_proc(length)
-	// env.bindings["map"] = new_proc(map_)
 	env.bindings["not"] = new_proc(nullp) // same as null
 	env.bindings["numberp"] = new_proc(numberp)
 	env.bindings["functionp"] = new_proc(functionp)
@@ -665,43 +664,6 @@ length :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
 	}
 	unimplemented("Reached the end of length()")
 }
-
-
-// @(private = "file")
-// map_ :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
-// 	// map: Returns a new list obtained by applying a procedure to each element of the list
-// 	if len(args) != 2 {
-// 		return nil, fmt.tprintf("invalid number of arguments: %d", len(args))
-// 	}
-//
-// 	procedure := args[0]
-// 	list_expr := args[1]
-//
-// 	is_proc := false
-// 	#partial switch _ in procedure {
-// 	case ExpProc, ExpLambda:
-// 		is_proc = true
-// 	}
-// 	if !is_proc {
-// 		return nil, fmt.tprintf("first argument to map must be a proc or lambda")
-// 	}
-// 	if _, is_list := list_expr.(ExpList); !is_list {
-// 		return nil, fmt.tprintf("second argument to map must be a list")
-// 	}
-//
-// 	mapped_list: [dynamic]^Exp
-// 	for item in list_expr.(ExpList).list {
-// 		item_list: [dynamic]^Exp
-// 		append(&item_list, item)
-//
-// 		expr, err := invoke(procedure, item_list)
-// 		if err != "" {
-// 			return nil, err
-// 		}
-// 		append(&mapped_list, expr)
-// 	}
-// 	return new_list(mapped_list), ""
-// }
 
 @(private = "file")
 numberp :: proc(args: [dynamic]^Exp) -> (^Exp, string) {

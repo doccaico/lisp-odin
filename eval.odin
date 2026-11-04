@@ -228,29 +228,29 @@ eval :: proc(exp: ^Exp, env: ^Env) -> (^Exp, string) {
 				}
 				return invoke(procedure, list_expr.(ExpList).list)
 
-				// TODO
 			} else if symbol.sym == "map" {
 
 				if len(e.list) != 3 {
 					return nil, "map requires exactly 2 arguments: a procedure and a list"
 				}
 
-				procedure := e.list[0]
-				list_arg := e.list[1]
+				procedure, pro_err := eval(e.list[1], env)
+				if pro_err != "" {
+					return nil, pro_err
+				}
 
-				// マップした結果の要素を格納する新しい配列（アリーナから確保されるため解放不要）
+				list_arg, list_expr_err := eval(e.list[2], env)
+				if list_expr_err != "" {
+					return nil, list_expr_err
+				}
+
 				result_elements: [dynamic]^Exp
 
-				// 💡 引数の型に応じて、要素の取り出し方を分岐させる
 				#partial switch lst in list_arg^ {
 				case ExpNil:
-					// NIL（空リスト）の場合は、何もせずに空リストを返す
 					return new_nil(), ""
-
 				case ExpList:
-					// 元々あった動的配列ベースのリストの場合
 					for item in lst.list {
-						// 各要素に対して関数を適用（invoke）する
 						args := make([dynamic]^Exp)
 						append(&args, item)
 						res, err := invoke(procedure, args)
@@ -259,14 +259,11 @@ eval :: proc(exp: ^Exp, env: ^Env) -> (^Exp, string) {
 						}
 						append(&result_elements, res)
 					}
-
 				case ExpCons:
-					// range などが作った Consセルの連鎖（Linked List）の場合
 					current := list_arg
 					main_loop: for current != nil {
 						#partial switch c in current^ {
 						case ExpCons:
-							// car（現在の要素）に関数を適用する
 							args := make([dynamic]^Exp)
 							append(&args, c.car)
 							res, err := invoke(procedure, args)
@@ -274,16 +271,12 @@ eval :: proc(exp: ^Exp, env: ^Env) -> (^Exp, string) {
 								return nil, err
 							}
 							append(&result_elements, res)
-
-							// cdr（次の要素）へ進む
 							current = c.cdr
 						case ExpNil:
-							// 末尾の NIL に到達したらループ終了
 							break main_loop
 						case ExpList:
-							// あなたの `cons` が作った末尾の空配列ケースも考慮
 							if len(c.list) == 0 {
-								break
+								break main_loop
 							}
 							return nil, "map: invalid list structure (dotted pair encountered)"
 						case:
@@ -291,9 +284,9 @@ eval :: proc(exp: ^Exp, env: ^Env) -> (^Exp, string) {
 						}
 					}
 				case:
+					fmt.println("DEBUG: lst is type:", lst)
 					return nil, "second argument to map must be a list"
 				}
-				// 最後に、マップされた要素の配列を新しいリスト（ExpList）としてラップして返す
 				return new_list(result_elements), ""
 			}
 

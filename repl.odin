@@ -57,6 +57,7 @@ repl :: proc(prompt: string, global_env: ^Env) {
 			if eval_expr, eval_err_msg := eval(read_expr, global_env); eval_err_msg != "" {
 				fmt.println(eval_err_msg)
 				has_eval_result = false
+				fmt.print(prompt)
 				break
 			} else {
 				last_eval_expr = eval_expr
