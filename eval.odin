@@ -158,11 +158,9 @@ eval :: proc(exp: ^Exp, env: ^Env) -> (^Exp, string) {
 		return invoke(procedure, args)
 	}
 
-	// return nil
-	unreachable()
+	unimplemented("Reached the end of eval()")
 }
 
-@(private = "file")
 invoke :: proc(procedure: ^Exp, args: [dynamic]^Exp) -> (^Exp, string) {
 	#partial switch p in procedure {
 	case ExpProc:
@@ -189,5 +187,6 @@ invoke :: proc(procedure: ^Exp, args: [dynamic]^Exp) -> (^Exp, string) {
 	case:
 		return nil, fmt.tprintf("not a procedure or lambda: %s", exp_to_string(procedure))
 	}
-	unreachable()
+
+	unimplemented("Reached the end of invoke()")
 }

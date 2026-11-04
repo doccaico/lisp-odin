@@ -1,6 +1,5 @@
 package main
 
-import "core:fmt"
 import "core:strconv"
 import "core:strings"
 
@@ -29,7 +28,11 @@ read :: proc(r: ^Reader) -> (^Exp, string) {
 
 	if r.ch == '"' {
 		// Return a string object
-		return new_str(read_string(r)), ""
+		s, err := read_string(r)
+		if err != "" {
+			return nil, err
+		}
+		return new_str(s), ""
 	} else if r.ch == '(' {
 		// Consume '('
 		next_char(r)
@@ -99,7 +102,7 @@ skip_whitespace :: proc(r: ^Reader, skip_comment: bool = false) {
 
 // Parse string literals
 @(private = "file")
-read_string :: proc(r: ^Reader) -> string {
+read_string :: proc(r: ^Reader) -> (string, string) {
 	// Skip the starting double quote
 	next_char(r)
 	sb := strings.builder_make()
@@ -112,7 +115,7 @@ read_string :: proc(r: ^Reader) -> string {
 		}
 
 		if r.ch == '\x00' {
-			print_and_exit("Unclosed string literal")
+			return "", "Unclosed string literal"
 		}
 
 
@@ -120,7 +123,7 @@ read_string :: proc(r: ^Reader) -> string {
 			// Consume '\\'
 			next_char(r)
 			if r.ch == '\x00' {
-				print_and_exit("Unclosed string literal after escape")
+				return "", "Unclosed string literal after escape"
 			}
 
 			switch r.ch {
@@ -142,7 +145,7 @@ read_string :: proc(r: ^Reader) -> string {
 		}
 		next_char(r)
 	}
-	return strings.to_string(sb)
+	return strings.to_string(sb), ""
 }
 
 @(private = "file")

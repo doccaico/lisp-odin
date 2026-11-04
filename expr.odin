@@ -96,5 +96,6 @@ exp_to_string :: proc(exp: ^Exp) -> string {
 	case ExpLambda:
 		return "<lambda>"
 	}
-	unreachable()
+
+	unimplemented("Reached the end of exp_to_string()")
 }

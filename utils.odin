@@ -1,13 +1,5 @@
 package main
 
-import "core:fmt"
-import "core:os"
-
-print_and_exit :: proc(format: string, args: ..any) {
-	fmt.eprintfln(format, ..args)
-	os.exit(1)
-}
-
 new_symbol :: proc(s: string) -> ^Exp {
 	exp := new(Exp)
 	exp^ = ExpSymbol {

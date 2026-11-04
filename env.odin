@@ -2,7 +2,6 @@ package main
 
 import "core:fmt"
 import "core:math"
-// import "core:os"
 
 Env :: struct {
 	outer:    ^Env,
@@ -78,9 +77,8 @@ get_float :: proc(exp: ^Exp) -> f64 {
 	case ExpFloat:
 		return e.flo
 	case:
-		print_and_exit("expected a number, but got: %s", exp_to_string(exp))
+		panic(fmt.tprintf("expected a number or float, but got: %s", exp_to_string(exp)))
 	}
-	unreachable()
 }
 
 @(private = "file")
@@ -734,56 +732,3 @@ symbolp :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
 	}
 	return new_nil(), ""
 }
-
-// @(private = "file")
-// repl_load :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
-// 	// load: Load and execute an external file (Lisp code)
-// 	// Example: (load "foo.scm")
-// 	is_filename := false
-// 	#partial switch _ in args[0] {
-// 	case ExpSymbol, ExpString:
-// 		is_filename = true
-// 	}
-//
-// 	if len(args) != 1 || !is_filename {
-// 		return nil, ":load requires exactly 1 argument (filename as a symbol or string)"
-// 	}
-//
-// 	filename: string
-// 	#partial switch arg in args[0] {
-// 	case ExpSymbol:
-// 		filename = arg.sym
-// 	case ExpString:
-// 		filename = arg.str
-// 	}
-//
-// 	data, read_err := os.read_entire_file(filename, context.allocator)
-// 	if read_err != nil {
-// 		return nil, fmt.tprintf("Cannot read a file: %s", filename)
-// 	}
-//
-// 	r := init_reader(string(data))
-//
-// 	for {
-// 		expr: ^Exp
-// 		msg: string
-// 		if expr, msg = read(&r); msg != "" {
-// 			fmt.println(msg)
-// 			os.exit(1)
-// 		}
-//
-// 		if expr == nil {
-// 			break
-// 		}
-//
-// 		// fmt.println(expr^)
-//
-// 		if expr, msg := eval(expr, global_env); msg != "" {
-// 			fmt.println(msg)
-// 			os.exit(1)
-// 		} else {
-// 			fmt.println(exp_to_string(expr))
-// 		}
-// 		free_all(context.temp_allocator)
-// 	}
-// }

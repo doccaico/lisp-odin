@@ -9,16 +9,14 @@ import "core:os"
 is_repl := false
 
 HELP_MESSAGE :: `Usage: odin-lisp FILENAME
-  -r:         REPL
-  -h, --help: show a help message
+  -r, --repl:       REPL
+  -h, --help:       show a help message
 	`
 
 main :: proc() {
 	arena: vmem.Arena
 	arena_err := vmem.arena_init_growing(&arena)
-	if arena_err != nil {
-		print_and_exit("Failed to init arena")
-	}
+	assert(arena_err == nil)
 	arena_allocator := vmem.arena_allocator(&arena)
 	defer vmem.arena_destroy(&arena)
 
@@ -41,7 +39,8 @@ main :: proc() {
 	filename := os.args[1]
 	data, read_err := os.read_entire_file(filename, context.allocator)
 	if read_err != nil {
-		print_and_exit("Cannot read a file: %s", filename)
+		fmt.eprintfln("Cannot read a file: %s", filename)
+		os.exit(1)
 	}
 
 	r := init_reader(string(data))
@@ -58,13 +57,9 @@ main :: proc() {
 			break
 		}
 
-		// fmt.println(expr^)
-
 		if expr, msg := eval(expr, global_env); msg != "" {
 			fmt.println(msg)
 			os.exit(1)
-		} else {
-			fmt.println(exp_to_string(expr))
 		}
 	}
 }
