@@ -162,7 +162,7 @@ eval :: proc(exp: ^Exp, env: ^Env) -> (^Exp, string) {
 	unreachable()
 }
 
-// @(private = "file")
+@(private = "file")
 invoke :: proc(procedure: ^Exp, args: [dynamic]^Exp) -> (^Exp, string) {
 	#partial switch p in procedure {
 	case ExpProc:
