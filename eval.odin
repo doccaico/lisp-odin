@@ -34,16 +34,10 @@ eval :: proc(exp: ^Exp, env: ^Env) -> (^Exp, string) {
 				if test_res_err_msg != "" {
 					return nil, test_res_err_msg
 				}
-				is_true: bool
+				is_true := true
 				#partial switch tr in test_res {
-				case ExpNumber:
-					is_true = tr.num != 0
-				case ExpFloat:
-					is_true = tr.flo != 0.0
-				case ExpList:
-					is_true = len(tr.list) > 0
-				case:
-					is_true = true
+				case ExpNil:
+					is_true = false
 				}
 				if is_true {
 					return eval(conseq, env)
@@ -233,6 +227,74 @@ eval :: proc(exp: ^Exp, env: ^Env) -> (^Exp, string) {
 					return nil, "second argument to apply must be a list"
 				}
 				return invoke(procedure, list_expr.(ExpList).list)
+
+				// TODO
+			} else if symbol.sym == "map" {
+
+				if len(e.list) != 3 {
+					return nil, "map requires exactly 2 arguments: a procedure and a list"
+				}
+
+				procedure := e.list[0]
+				list_arg := e.list[1]
+
+				// マップした結果の要素を格納する新しい配列（アリーナから確保されるため解放不要）
+				result_elements: [dynamic]^Exp
+
+				// 💡 引数の型に応じて、要素の取り出し方を分岐させる
+				#partial switch lst in list_arg^ {
+				case ExpNil:
+					// NIL（空リスト）の場合は、何もせずに空リストを返す
+					return new_nil(), ""
+
+				case ExpList:
+					// 元々あった動的配列ベースのリストの場合
+					for item in lst.list {
+						// 各要素に対して関数を適用（invoke）する
+						args := make([dynamic]^Exp)
+						append(&args, item)
+						res, err := invoke(procedure, args)
+						if err != "" {
+							return nil, err
+						}
+						append(&result_elements, res)
+					}
+
+				case ExpCons:
+					// range などが作った Consセルの連鎖（Linked List）の場合
+					current := list_arg
+					main_loop: for current != nil {
+						#partial switch c in current^ {
+						case ExpCons:
+							// car（現在の要素）に関数を適用する
+							args := make([dynamic]^Exp)
+							append(&args, c.car)
+							res, err := invoke(procedure, args)
+							if err != "" {
+								return nil, err
+							}
+							append(&result_elements, res)
+
+							// cdr（次の要素）へ進む
+							current = c.cdr
+						case ExpNil:
+							// 末尾の NIL に到達したらループ終了
+							break main_loop
+						case ExpList:
+							// あなたの `cons` が作った末尾の空配列ケースも考慮
+							if len(c.list) == 0 {
+								break
+							}
+							return nil, "map: invalid list structure (dotted pair encountered)"
+						case:
+							return nil, "map: second argument must be a proper list"
+						}
+					}
+				case:
+					return nil, "second argument to map must be a list"
+				}
+				// 最後に、マップされた要素の配列を新しいリスト（ExpList）としてラップして返す
+				return new_list(result_elements), ""
 			}
 
 		}

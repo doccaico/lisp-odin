@@ -40,7 +40,7 @@ standard_env :: proc() -> ^Env {
 	env.bindings["print"] = new_proc(print)
 	env.bindings["equal"] = new_proc(equal)
 	env.bindings["length"] = new_proc(length)
-	env.bindings["map"] = new_proc(map_)
+	// env.bindings["map"] = new_proc(map_)
 	env.bindings["not"] = new_proc(nullp) // same as null
 	env.bindings["numberp"] = new_proc(numberp)
 	env.bindings["functionp"] = new_proc(functionp)
@@ -75,9 +75,8 @@ get_float :: proc(exp: ^Exp) -> f64 {
 		return f64(e.num)
 	case ExpFloat:
 		return e.flo
-	case:
-		panic(fmt.tprintf("expected a number or float, but got: %s", exp_to_string(exp)))
 	}
+	panic(fmt.tprintf("expected a number or float, but got: %s", exp_to_string(exp)))
 }
 
 @(private = "file")
@@ -212,8 +211,10 @@ gt :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
 	if len(args) == 1 {
 		return new_true(), ""
 	}
-	for i in 1 ..< len(args) - 1 {
-		if get_float(args[i]) <= get_float(args[i + 1]) {
+	for i in 0 ..< len(args) - 1 {
+		left := get_float(args[i])
+		right := get_float(args[i + 1])
+		if left <= right {
 			return new_nil(), ""
 		}
 	}
@@ -229,8 +230,10 @@ gte :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
 	if len(args) == 1 {
 		return new_true(), ""
 	}
-	for i in 1 ..< len(args) - 1 {
-		if get_float(args[i]) < get_float(args[i + 1]) {
+	for i in 0 ..< len(args) - 1 {
+		left := get_float(args[i])
+		right := get_float(args[i + 1])
+		if left < right {
 			return new_nil(), ""
 		}
 	}
@@ -246,8 +249,10 @@ lt :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
 	if len(args) == 1 {
 		return new_true(), ""
 	}
-	for i in 1 ..< len(args) - 1 {
-		if get_float(args[i]) >= get_float(args[i + 1]) {
+	for i in 0 ..< len(args) - 1 {
+		left := get_float(args[i])
+		right := get_float(args[i + 1])
+		if left >= right {
 			return new_nil(), ""
 		}
 	}
@@ -263,8 +268,10 @@ lte :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
 	if len(args) == 1 {
 		return new_true(), ""
 	}
-	for i in 1 ..< len(args) - 1 {
-		if get_float(args[i]) > get_float(args[i + 1]) {
+	for i in 0 ..< len(args) - 1 {
+		left := get_float(args[i])
+		right := get_float(args[i + 1])
+		if left > right {
 			return new_nil(), ""
 		}
 	}
@@ -282,7 +289,8 @@ eq :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
 	}
 	first_val := get_float(args[0])
 	for i in 1 ..< len(args) {
-		if get_float(args[i]) != first_val {
+		val := get_float(args[i])
+		if val != first_val {
 			return new_nil(), ""
 		}
 	}
@@ -658,41 +666,42 @@ length :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
 	unimplemented("Reached the end of length()")
 }
 
-@(private = "file")
-map_ :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
-	// map: Returns a new list obtained by applying a procedure to each element of the list
-	if len(args) != 2 {
-		return nil, fmt.tprintf("invalid number of arguments: %d", len(args))
-	}
 
-	procedure := args[0]
-	list_expr := args[1]
-
-	is_proc := false
-	#partial switch _ in procedure {
-	case ExpProc, ExpLambda:
-		is_proc = true
-	}
-	if !is_proc {
-		return nil, fmt.tprintf("first argument to map must be a proc or lambda")
-	}
-	if _, is_list := list_expr.(ExpList); !is_list {
-		return nil, fmt.tprintf("second argument to map must be a list")
-	}
-
-	mapped_list: [dynamic]^Exp
-	for item in list_expr.(ExpList).list {
-		item_list: [dynamic]^Exp
-		append(&item_list, item)
-
-		expr, err := invoke(procedure, item_list)
-		if err != "" {
-			return nil, err
-		}
-		append(&mapped_list, expr)
-	}
-	return new_list(mapped_list), ""
-}
+// @(private = "file")
+// map_ :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
+// 	// map: Returns a new list obtained by applying a procedure to each element of the list
+// 	if len(args) != 2 {
+// 		return nil, fmt.tprintf("invalid number of arguments: %d", len(args))
+// 	}
+//
+// 	procedure := args[0]
+// 	list_expr := args[1]
+//
+// 	is_proc := false
+// 	#partial switch _ in procedure {
+// 	case ExpProc, ExpLambda:
+// 		is_proc = true
+// 	}
+// 	if !is_proc {
+// 		return nil, fmt.tprintf("first argument to map must be a proc or lambda")
+// 	}
+// 	if _, is_list := list_expr.(ExpList); !is_list {
+// 		return nil, fmt.tprintf("second argument to map must be a list")
+// 	}
+//
+// 	mapped_list: [dynamic]^Exp
+// 	for item in list_expr.(ExpList).list {
+// 		item_list: [dynamic]^Exp
+// 		append(&item_list, item)
+//
+// 		expr, err := invoke(procedure, item_list)
+// 		if err != "" {
+// 			return nil, err
+// 		}
+// 		append(&mapped_list, expr)
+// 	}
+// 	return new_list(mapped_list), ""
+// }
 
 @(private = "file")
 numberp :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
