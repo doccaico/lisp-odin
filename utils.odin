@@ -48,13 +48,13 @@ new_str :: proc(s: string) -> ^Exp {
 	return exp
 }
 
-new_list :: proc(args: [dynamic]^Exp) -> ^Exp {
-	exp := new(Exp)
-	exp^ = ExpList {
-		list = args,
-	}
-	return exp
-}
+// new_list :: proc(args: [dynamic]^Exp) -> ^Exp {
+// 	exp := new(Exp)
+// 	exp^ = ExpList {
+// 		list = args,
+// 	}
+// 	return exp
+// }
 
 new_cons :: proc(car: ^Exp, cdr: ^Exp) -> ^Exp {
 	exp := new(Exp)
@@ -65,10 +65,11 @@ new_cons :: proc(car: ^Exp, cdr: ^Exp) -> ^Exp {
 	return exp
 }
 
-new_proc :: proc(p: LispProc) -> ^Exp {
+new_proc :: proc(p: LispProc, is_special: bool) -> ^Exp {
 	exp := new(Exp)
 	exp^ = ExpProc {
-		pro = p,
+		pro        = p,
+		is_special = is_special,
 	}
 	return exp
 }
@@ -81,4 +82,23 @@ new_lambda :: proc(params: [dynamic]string, body: ^Exp, closure: ^Env) -> ^Exp {
 		closure = closure,
 	}
 	return exp
+}
+
+flatten_list :: proc(list_exp: ^Exp) -> ([]^Exp, bool) {
+	current := list_exp
+	res: [dynamic]^Exp
+
+	for {
+		#partial switch c in current {
+		case ExpCons:
+			append(&res, c.car)
+			current = c.cdr
+		case ExpNil:
+			return res[:], true // 正常なリスト
+		case:
+			// ドット対（不完全なリスト）の場合
+			append(&res, current)
+			return res[:], false
+		}
+	}
 }

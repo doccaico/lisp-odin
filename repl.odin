@@ -29,10 +29,6 @@ repl :: proc(prompt: string, global_env: ^Env) {
 			continue
 		}
 
-		if input == "(:q)" || input == "(:quit)" {
-			break
-		}
-
 		r := init_reader(input)
 
 		last_eval_expr: ^Exp = nil
@@ -41,12 +37,11 @@ repl :: proc(prompt: string, global_env: ^Env) {
 		for {
 
 			read_expr: ^Exp
-			read_err_msg: string
+			read_err: string
 
-			if read_expr, read_err_msg = read(&r); read_err_msg != "" {
-				fmt.println(read_err_msg)
+			if read_expr, read_err = read(&r); read_err != "" {
 				has_eval_result = false
-				fmt.print(prompt)
+				fmt.println(read_err)
 				break
 			}
 
@@ -54,10 +49,9 @@ repl :: proc(prompt: string, global_env: ^Env) {
 				break
 			}
 
-			if eval_expr, eval_err_msg := eval(read_expr, global_env); eval_err_msg != "" {
-				fmt.println(eval_err_msg)
+			if eval_expr, eval_err := eval(read_expr, global_env); eval_err != "" {
 				has_eval_result = false
-				fmt.print(prompt)
+				fmt.println(eval_err)
 				break
 			} else {
 				last_eval_expr = eval_expr
@@ -67,7 +61,8 @@ repl :: proc(prompt: string, global_env: ^Env) {
 
 		if has_eval_result && last_eval_expr != nil {
 			fmt.println(exp_to_string(last_eval_expr))
-			fmt.print(prompt)
 		}
+
+		fmt.print(prompt)
 	}
 }

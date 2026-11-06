@@ -1,5 +1,6 @@
 package main
 
+import "core:fmt"
 import "core:strconv"
 import "core:strings"
 
@@ -150,27 +151,74 @@ read_string :: proc(r: ^Reader) -> (string, string) {
 
 @(private = "file")
 read_list :: proc(r: ^Reader) -> (^Exp, string) {
-	list_elements := make([dynamic]^Exp)
+	elements := make([dynamic]^Exp)
 
-	for r.ch != ')' && r.ch != '\x00' {
-		element := new(Exp)
-		msg: string
-		if element, msg = read(r); msg != "" {
-			return nil, msg
+	has_dot := false
+	var_cdr: ^Exp = nil
+
+	for {
+		skip_whitespace(r, skip_comment = true)
+
+		// 閉じカッコが見つかったらループ終了
+		if r.ch == ')' {
+			next_char(r) // ')' を消費
+			break
 		}
-		if element != nil {
-			append(&list_elements, element)
+
+		// 入力の終端に達してしまった場合はエラー
+		if r.ch == '\x00' {
+			return nil, "Expected closing parenthesis ')', but reached EOF"
 		}
-		skip_whitespace(r)
+
+		// ドット対（ドット表現）の処理（オプション：必要なければこのifブロックは削除してOKです）
+		if r.ch == '.' {
+			// 次の文字を確認するため、先読み or 進める
+			next_char(r)
+			skip_whitespace(r, skip_comment = true)
+
+			if r.ch == ')' {
+				return nil, "S-expression syntax error: unexpected ')' after '.'"
+			}
+
+			// ドットの後は、cdr となる最後の1要素だけを読み込む
+			final_expr, err := read(r)
+			if err != "" {
+				return nil, err
+			}
+
+			skip_whitespace(r, skip_comment = true)
+			if r.ch != ')' {
+				return nil, "S-expression syntax error: expected ')' after dot notation value"
+			}
+
+			has_dot = true
+			var_cdr = final_expr
+			next_char(r) // ')' を消費
+			break
+		}
+
+		expr, err := read(r)
+		if err != "" {
+			return nil, err
+		}
+
+		append(&elements, expr)
 	}
 
-	if r.ch == '\x00' {
-		return nil, "Unclosed list literal"
+	// From this point, convert the elements into a nested structure of `ExpCons` / `ExpNil`
+	head: ^Exp = nil
+	if has_dot {
+		head = var_cdr
+	} else {
+		head = new_nil()
 	}
-	// Consume ')'
-	next_char(r)
 
-	return new_list(list_elements), ""
+	// (1 2 3) -> Cons(3, Nil) -> Cons(2, Cons(3, Nil))...
+	for i := len(elements) - 1; i >= 0; i -= 1 {
+		head = new_cons(elements[i], head)
+	}
+
+	return head, ""
 }
 
 @(private = "file")
