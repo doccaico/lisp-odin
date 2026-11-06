@@ -105,11 +105,10 @@ to_string :: proc(expr: ^Expr) -> string {
 	case ExprString:
 		return fmt.tprintf("\"%s\"", e.str)
 	case ExprCons:
-		sb: strings.Builder
-		strings.builder_init(&sb)
+		sb, err := strings.builder_make()
 		strings.write_string(&sb, "(")
-
 		current := expr
+
 		main_loop: for {
 			c := current.(ExprCons)
 

@@ -107,10 +107,8 @@ skip_whitespace :: proc "contextless" (r: ^Reader, skip_comment: bool = false) {
 read_string :: proc(r: ^Reader) -> (string, string) {
 	// Skip the starting double quote
 	next_char(r)
+
 	sb, err := strings.builder_make()
-	if err != .None {
-		return "", "failed to allocate"
-	}
 
 	for {
 		if r.ch == '"' {
@@ -226,12 +224,9 @@ read_list :: proc(r: ^Reader) -> (^Expr, string) {
 }
 
 @(private = "file")
-convert_prefixed_token :: proc(s: string) -> (string, string) {
+convert_prefixed_token :: proc(s: string) -> string {
 	if len(s) >= 2 && s[0] == '#' {
 		sb, err := strings.builder_make()
-		if err != .None {
-			return "", "failed to allocate"
-		}
 		prefix: string
 
 		switch s[1] {
@@ -256,9 +251,9 @@ convert_prefixed_token :: proc(s: string) -> (string, string) {
 			strings.write_string(&sb, s[2:])
 
 		}
-		return strings.to_string(sb), ""
+		return strings.to_string(sb)
 	}
-	return s, ""
+	return s
 }
 
 @(private = "file")
@@ -334,10 +329,7 @@ read_atom :: proc(r: ^Reader) -> (^Expr, string) {
 		return new_nil(), ""
 	}
 
-	cleaned_token, err := convert_prefixed_token(token)
-	if err != "" {
-		return nil, err
-	}
+	cleaned_token := convert_prefixed_token(token)
 
 	if is_integer_token(cleaned_token) {
 		i128_num, i128_ok := strconv.parse_i128_maybe_prefixed(cleaned_token)
@@ -356,9 +348,9 @@ read_atom :: proc(r: ^Reader) -> (^Expr, string) {
 	}
 
 	if is_float_token(cleaned_token) {
-		f_num, f_ok := strconv.parse_f64(cleaned_token)
-		if f_ok {
-			return new_float(f_num), ""
+		f64_num, f64_ok := strconv.parse_f64(cleaned_token)
+		if f64_ok {
+			return new_float(f64_num), ""
 		} else {
 			return nil, fmt.tprintf(
 				"The float is too large (f64 overflow) or contains invalid characters: %s",
