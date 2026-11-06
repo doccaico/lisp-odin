@@ -167,7 +167,7 @@ read_list :: proc(r: ^Reader) -> (^Expr, string) {
 
 		// 入力の終端に達してしまった場合はエラー
 		if r.ch == '\x00' {
-			return nil, "Exprected closing parenthesis ')', but reached EOF"
+			return nil, "Expected closing parenthesis ')', but reached EOF"
 		}
 
 		// ドット対（ドット表現）の処理（オプション：必要なければこのifブロックは削除してOKです）
