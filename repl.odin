@@ -31,12 +31,12 @@ repl :: proc(prompt: string, global_env: ^Env) {
 
 		r := init_reader(input)
 
-		last_eval_expr: ^Exp = nil
+		last_eval_expr: ^Expr = nil
 		has_eval_result := false
 
 		for {
 
-			read_expr: ^Exp
+			read_expr: ^Expr
 			read_err: string
 
 			if read_expr, read_err = read(&r); read_err != "" {
@@ -60,7 +60,7 @@ repl :: proc(prompt: string, global_env: ^Env) {
 		}
 
 		if has_eval_result && last_eval_expr != nil {
-			fmt.println(exp_to_string(last_eval_expr))
+			fmt.println(to_string(last_eval_expr))
 		}
 
 		fmt.print(prompt)

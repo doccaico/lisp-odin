@@ -24,7 +24,7 @@ init_reader :: proc(input: string) -> Reader {
 	return r
 }
 
-read :: proc(r: ^Reader) -> (^Exp, string) {
+read :: proc(r: ^Reader) -> (^Expr, string) {
 	skip_whitespace(r, skip_comment = true)
 
 	if r.ch == '"' {
@@ -150,11 +150,11 @@ read_string :: proc(r: ^Reader) -> (string, string) {
 }
 
 @(private = "file")
-read_list :: proc(r: ^Reader) -> (^Exp, string) {
-	elements := make([dynamic]^Exp)
+read_list :: proc(r: ^Reader) -> (^Expr, string) {
+	elements := make([dynamic]^Expr)
 
 	has_dot := false
-	var_cdr: ^Exp = nil
+	var_cdr: ^Expr = nil
 
 	for {
 		skip_whitespace(r, skip_comment = true)
@@ -167,7 +167,7 @@ read_list :: proc(r: ^Reader) -> (^Exp, string) {
 
 		// 入力の終端に達してしまった場合はエラー
 		if r.ch == '\x00' {
-			return nil, "Expected closing parenthesis ')', but reached EOF"
+			return nil, "Exprected closing parenthesis ')', but reached EOF"
 		}
 
 		// ドット対（ドット表現）の処理（オプション：必要なければこのifブロックは削除してOKです）
@@ -205,8 +205,8 @@ read_list :: proc(r: ^Reader) -> (^Exp, string) {
 		append(&elements, expr)
 	}
 
-	// From this point, convert the elements into a nested structure of `ExpCons` / `ExpNil`
-	head: ^Exp = nil
+	// From this point, convert the elements into a nested structure of `ExprCons` / `ExprNil`
+	head: ^Expr = nil
 	if has_dot {
 		head = var_cdr
 	} else {
@@ -222,7 +222,7 @@ read_list :: proc(r: ^Reader) -> (^Exp, string) {
 }
 
 @(private = "file")
-read_atom :: proc(r: ^Reader) -> ^Exp {
+read_atom :: proc(r: ^Reader) -> ^Expr {
 	start_pos := r.position
 
 	for !is_delimiter(r.ch) {

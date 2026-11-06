@@ -6,7 +6,7 @@ import "core:os"
 
 Env :: struct {
 	outer:    ^Env,
-	bindings: map[string]^Exp,
+	bindings: map[string]^Expr,
 }
 
 standard_env :: proc() -> ^Env {
@@ -32,30 +32,30 @@ standard_env :: proc() -> ^Env {
 	env.bindings["<="] = new_proc(lte_proc, is_special = false)
 	env.bindings["="] = new_proc(equal_sign_proc, is_special = false)
 
-	// env.bindings["pi"] = new_float(math.PI)
-	// env.bindings["sin"] = new_proc(sin)
-	// env.bindings["cos"] = new_proc(cos)
-	// env.bindings["sqrt"] = new_proc(sqrt)
-	// env.bindings["abs"] = new_proc(abs)
-	// env.bindings["expt"] = new_proc(expt)
-	// env.bindings["max"] = new_proc(max)
-	// env.bindings["min"] = new_proc(min)
-	// env.bindings["round"] = new_proc(round)
-	//
+	env.bindings["pi"] = new_float(math.PI)
+	env.bindings["sin"] = new_proc(sin_proc, is_special = false)
+	env.bindings["cos"] = new_proc(cos_proc, is_special = false)
+	env.bindings["sqrt"] = new_proc(sqrt_proc, is_special = false)
+	env.bindings["abs"] = new_proc(abs_proc, is_special = false)
+	env.bindings["expt"] = new_proc(expt_proc, is_special = false)
+	env.bindings["max"] = new_proc(max_proc, is_special = false)
+	env.bindings["min"] = new_proc(min_proc, is_special = false)
+	env.bindings["round"] = new_proc(round_proc, is_special = false)
+
 	env.bindings["list"] = new_proc(list_proc, is_special = false)
-	// env.bindings["listp"] = new_proc(listp)
-	// env.bindings["car"] = new_proc(car)
-	// env.bindings["cdr"] = new_proc(cdr)
+	env.bindings["listp"] = new_proc(listp_proc, is_special = false)
+	env.bindings["car"] = new_proc(car_proc, is_special = false)
+	env.bindings["cdr"] = new_proc(cdr_proc, is_special = false)
 	env.bindings["cons"] = new_proc(cons_proc, is_special = false)
-	// env.bindings["append"] = new_proc(append_)
-	// env.bindings["null"] = new_proc(nullp)
-	// env.bindings["print"] = new_proc(print)
-	// env.bindings["equal"] = new_proc(equal)
-	// env.bindings["length"] = new_proc(length)
-	// env.bindings["not"] = new_proc(nullp) // same as null
-	// env.bindings["numberp"] = new_proc(numberp)
-	// env.bindings["functionp"] = new_proc(functionp)
-	// env.bindings["symbolp"] = new_proc(symbolp)
+	env.bindings["append"] = new_proc(append_proc, is_special = false)
+	env.bindings["null"] = new_proc(null_proc, is_special = false)
+	env.bindings["print"] = new_proc(print_proc, is_special = false)
+	env.bindings["equal"] = new_proc(equal_proc, is_special = false)
+	env.bindings["length"] = new_proc(length_proc, is_special = false)
+	env.bindings["not"] = new_proc(null_proc, is_special = false) // same as null
+	env.bindings["numberp"] = new_proc(numberp_proc, is_special = false)
+	env.bindings["functionp"] = new_proc(functionp_proc, is_special = false)
+	env.bindings["symbolp"] = new_proc(symbolp_proc, is_special = false)
 
 	env.bindings["load"] = new_proc(load_proc, is_special = false)
 
@@ -74,7 +74,7 @@ find_env :: proc(env: ^Env, name: string) -> ^Env {
 }
 
 @(private = "file")
-new_numeric_expr :: proc(flo: f64, is_all_int: bool) -> ^Exp {
+new_numeric_expr :: proc(flo: f64, is_all_int: bool) -> ^Expr {
 	if is_all_int {
 		return new_int(i64(flo))
 	}
@@ -82,18 +82,18 @@ new_numeric_expr :: proc(flo: f64, is_all_int: bool) -> ^Exp {
 }
 
 @(private = "file")
-get_float :: proc(exp: ^Exp) -> (f64, bool) {
+get_float :: proc(exp: ^Expr) -> (f64, bool) {
 	#partial switch e in exp {
-	case ExpNumber:
+	case ExprNumber:
 		return f64(e.num), true
-	case ExpFloat:
+	case ExprFloat:
 		return e.flo, true
 	}
 	return 0.0, false
 }
 
 @(private = "file")
-if_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
+if_proc :: proc(args: [dynamic]^Expr, env: ^Env) -> (^Expr, string) {
 	// (if T 1 2) -> 1
 	// (if NIL 1 2) -> 2
 	if len(args) != 3 {
@@ -112,7 +112,7 @@ if_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 	}
 	is_true := true
 	#partial switch tr in test_res {
-	case ExpNil:
+	case ExprNil:
 		is_true = false
 	}
 	if is_true {
@@ -123,13 +123,13 @@ if_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 }
 
 @(private = "file")
-progn_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
+progn_proc :: proc(args: [dynamic]^Expr, env: ^Env) -> (^Expr, string) {
 	// (progn (define x 1) (define y 2) (+ x y)) -> 3
 	if len(args) == 0 {
 		return new_nil(), ""
 	}
 
-	last_result: ^Exp = nil
+	last_result: ^Expr = nil
 	for form in args {
 		err: string
 		last_result, err = eval(form, env)
@@ -142,19 +142,16 @@ progn_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 
 
 @(private = "file")
-define_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
+define_proc :: proc(args: [dynamic]^Expr, env: ^Env) -> (^Expr, string) {
 	// (define x 10)
 	// x -> 10
 	if len(args) != 2 {
 		return nil, "define requires exactly 2 argument"
 	}
-	if _, ok := args[0].(ExpSymbol); !ok {
-		return nil, fmt.tprintf(
-			"the argument to define, %s, is not a symbol",
-			exp_to_string(args[0]),
-		)
+	if _, ok := args[0].(ExprSymbol); !ok {
+		return nil, fmt.tprintf("the argument to define, %s, is not a symbol", to_string(args[0]))
 	}
-	define_sym := args[0].(ExpSymbol).sym
+	define_sym := args[0].(ExprSymbol).sym
 	define_expr := args[1]
 
 	define_err: string
@@ -166,7 +163,7 @@ define_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 }
 
 @(private = "file")
-quote_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
+quote_proc :: proc(args: [dynamic]^Expr, env: ^Env) -> (^Expr, string) {
 	// (quote exp)
 	if len(args) != 1 {
 		return nil, "quote requires exactly 1 argument"
@@ -176,7 +173,7 @@ quote_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 }
 
 @(private = "file")
-setf_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
+setf_proc :: proc(args: [dynamic]^Expr, env: ^Env) -> (^Expr, string) {
 	// (setf x 1) -> undefined symbol for setf: x
 	// (define x 1)
 	// (setf x 10)
@@ -184,12 +181,9 @@ setf_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 	if len(args) != 2 {
 		return nil, "setf requires exactly 2 arguments"
 	}
-	sym_expr, ok := args[0].(ExpSymbol)
+	sym_expr, ok := args[0].(ExprSymbol)
 	if !ok {
-		return nil, fmt.tprintf(
-			"the argument to setf, %s, is not a symbol",
-			exp_to_string(args[0]),
-		)
+		return nil, fmt.tprintf("the argument to setf, %s, is not a symbol", to_string(args[0]))
 	}
 
 	set_sym := sym_expr.sym
@@ -211,7 +205,7 @@ setf_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 }
 
 @(private = "file")
-lambda_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
+lambda_proc :: proc(args: [dynamic]^Expr, env: ^Env) -> (^Expr, string) {
 	// ((lambda (a) (+ a 10)) 1) -> 11
 	if len(args) < 2 {
 		return nil, "lambda requires at least a parameter list and a body"
@@ -225,7 +219,7 @@ lambda_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 
 	params := make([dynamic]string)
 	for param in param_slices {
-		sym_exp, sym_ok := param.(ExpSymbol)
+		sym_exp, sym_ok := param.(ExprSymbol)
 		if !sym_ok {
 			return nil, "lambda parameter must be a symbol"
 		}
@@ -233,11 +227,11 @@ lambda_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 	}
 
 	// Implicit progn
-	body: ^Exp = nil
+	body: ^Expr = nil
 	if len(args) == 2 {
 		body = args[1]
 	} else {
-		current_cdr: ^Exp = new_nil()
+		current_cdr: ^Expr = new_nil()
 
 		for i := len(args) - 1; i >= 1; i -= 1 {
 			current_cdr = new_cons(args[i], current_cdr)
@@ -250,7 +244,7 @@ lambda_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 }
 
 @(private = "file")
-apply_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
+apply_proc :: proc(args: [dynamic]^Expr, env: ^Env) -> (^Expr, string) {
 	// (apply (lambda (a b) a) (list 1 2)) -> 1
 	if len(args) != 2 {
 		return nil, "apply requires exactly 2 arguments (a procedure/lambda and a list)"
@@ -262,7 +256,7 @@ apply_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 	}
 
 	#partial switch _ in procedure {
-	case ExpProc, ExpLambda:
+	case ExprProc, ExprLambda:
 	case:
 		return nil, "first argument to apply must be a procedure or lambda"
 	}
@@ -277,7 +271,7 @@ apply_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 		return nil, "second argument to apply must evaluate to a proper list"
 	}
 
-	invoke_args := make([dynamic]^Exp, 0, len(param_slices))
+	invoke_args := make([dynamic]^Expr, 0, len(param_slices))
 	for param in param_slices {
 		append(&invoke_args, param)
 	}
@@ -291,7 +285,7 @@ apply_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 }
 
 @(private = "file")
-map_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
+map_proc :: proc(args: [dynamic]^Expr, env: ^Env) -> (^Expr, string) {
 	// (map (lambda (a) (+ a 10)) (list 0 1 2)) -> (10 11 12)
 	if len(args) != 2 {
 		return nil, "map requires exactly 2 arguments (a procedure/lambda and a list)"
@@ -303,7 +297,7 @@ map_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 	}
 
 	#partial switch _ in procedure {
-	case ExpProc, ExpLambda:
+	case ExprProc, ExprLambda:
 	case:
 		return nil, "first argument to map must be a procedure or lambda"
 	}
@@ -318,9 +312,9 @@ map_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 		return nil, "second argument to map must evaluate to a proper list"
 	}
 
-	results := make([dynamic]^Exp, 0, len(param_slices))
+	results := make([dynamic]^Expr, 0, len(param_slices))
 	for elem in param_slices {
-		invoke_args := make([dynamic]^Exp, 0, 1, context.temp_allocator)
+		invoke_args := make([dynamic]^Expr, 0, 1, context.temp_allocator)
 		append(&invoke_args, elem)
 
 		res_val, invoke_err := invoke(procedure, invoke_args, env)
@@ -330,7 +324,7 @@ map_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 		append(&results, res_val)
 	}
 
-	current_cdr: ^Exp = new_nil()
+	current_cdr: ^Expr = new_nil()
 	for i := len(results) - 1; i >= 0; i -= 1 {
 		current_cdr = new_cons(results[i], current_cdr)
 	}
@@ -339,7 +333,7 @@ map_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 }
 
 @(private = "file")
-add_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
+add_proc :: proc(args: [dynamic]^Expr, env: ^Env) -> (^Expr, string) {
 	// (+) -> 0
 	// (+ 10) -> 10
 	// (+ 10 10 10) -> 30
@@ -353,11 +347,11 @@ add_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 	for item in args {
 		val, ok := get_float(item)
 		if !ok {
-			return nil, fmt.tprintf("%s is not a number or float", exp_to_string(item))
+			return nil, fmt.tprintf("%s is not a number or float", to_string(item))
 		}
 		sum += val
 
-		if _, is_int := item.(ExpNumber); !is_int {
+		if _, is_int := item.(ExprNumber); !is_int {
 			all_int = false
 		}
 	}
@@ -366,7 +360,7 @@ add_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 }
 
 @(private = "file")
-sub_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
+sub_proc :: proc(args: [dynamic]^Expr, env: ^Env) -> (^Expr, string) {
 	// (- 10) -> -10
 	// (- 10 5 2) -> 3
 	if len(args) == 0 {
@@ -377,10 +371,10 @@ sub_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 	first_ok: bool
 	first_val, first_ok = get_float(args[0])
 	if !first_ok {
-		return nil, fmt.tprintf("%s is not a number or float", exp_to_string(args[0]))
+		return nil, fmt.tprintf("%s is not a number or float", to_string(args[0]))
 	}
 
-	_, all_int := args[0].(ExpNumber)
+	_, all_int := args[0].(ExprNumber)
 	if len(args) == 1 {
 		// Invert the sign if there is a single argument
 		return new_numeric_expr(-first_val, all_int), ""
@@ -392,11 +386,11 @@ sub_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 		item := args[i]
 		val, ok := get_float(item)
 		if !ok {
-			return nil, fmt.tprintf("%s is not a number or float", exp_to_string(item))
+			return nil, fmt.tprintf("%s is not a number or float", to_string(item))
 		}
 		sum -= val
 
-		if _, is_int := item.(ExpNumber); !is_int {
+		if _, is_int := item.(ExprNumber); !is_int {
 			all_int = false
 		}
 	}
@@ -405,7 +399,7 @@ sub_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 }
 
 @(private = "file")
-mul_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
+mul_proc :: proc(args: [dynamic]^Expr, env: ^Env) -> (^Expr, string) {
 	// (*) -> 1
 	// (* 10) -> 10
 	// (* 2 5 10) -> 100
@@ -419,11 +413,11 @@ mul_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 	for item in args {
 		val, ok := get_float(item)
 		if !ok {
-			return nil, fmt.tprintf("%s is not a number or float", exp_to_string(item))
+			return nil, fmt.tprintf("%s is not a number or float", to_string(item))
 		}
 		sum *= val
 
-		if _, is_int := item.(ExpNumber); !is_int {
+		if _, is_int := item.(ExprNumber); !is_int {
 			all_int = false
 		}
 	}
@@ -432,7 +426,7 @@ mul_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 }
 
 @(private = "file")
-div_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
+div_proc :: proc(args: [dynamic]^Expr, env: ^Env) -> (^Expr, string) {
 	// (/ 0) -> division by zero
 	// (/ 10) -> 0.1
 	// (/ 10.5) -> 0.09523809523809523
@@ -444,7 +438,7 @@ div_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 
 	first_val, first_ok := get_float(args[0])
 	if !first_ok {
-		return nil, fmt.tprintf("%s is not a number or float", exp_to_string(args[0]))
+		return nil, fmt.tprintf("%s is not a number or float", to_string(args[0]))
 	}
 
 	if len(args) == 1 {
@@ -460,7 +454,7 @@ div_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 		item := args[i]
 		val, ok := get_float(item)
 		if !ok {
-			return nil, fmt.tprintf("%s is not a number or float", exp_to_string(item))
+			return nil, fmt.tprintf("%s is not a number or float", to_string(item))
 		}
 
 		if val == 0 {
@@ -480,7 +474,7 @@ div_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 }
 
 @(private = "file")
-gt_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
+gt_proc :: proc(args: [dynamic]^Expr, env: ^Env) -> (^Expr, string) {
 	// (> 3 2 1) -> T
 	// (> 3 2 10) -> NIL
 	if len(args) == 0 {
@@ -489,7 +483,7 @@ gt_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 
 	current_left, ok := get_float(args[0])
 	if !ok {
-		return nil, fmt.tprintf("%s is not a number or float", exp_to_string(args[0]))
+		return nil, fmt.tprintf("%s is not a number or float", to_string(args[0]))
 	}
 
 	if len(args) == 1 {
@@ -499,7 +493,7 @@ gt_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 	for i := 1; i < len(args); i += 1 {
 		right_val, right_ok := get_float(args[i])
 		if !right_ok {
-			return nil, fmt.tprintf("%s is not a number or float", exp_to_string(args[i]))
+			return nil, fmt.tprintf("%s is not a number or float", to_string(args[i]))
 		}
 
 		if current_left <= right_val {
@@ -513,7 +507,7 @@ gt_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 }
 
 @(private = "file")
-gte_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
+gte_proc :: proc(args: [dynamic]^Expr, env: ^Env) -> (^Expr, string) {
 	// (>= 3 2 2) -> T
 	// (>= 3 2 10) -> NIL
 	if len(args) == 0 {
@@ -522,7 +516,7 @@ gte_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 
 	current_left, ok := get_float(args[0])
 	if !ok {
-		return nil, fmt.tprintf("%s is not a number or float", exp_to_string(args[0]))
+		return nil, fmt.tprintf("%s is not a number or float", to_string(args[0]))
 	}
 
 	if len(args) == 1 {
@@ -532,7 +526,7 @@ gte_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 	for i := 1; i < len(args); i += 1 {
 		right_val, right_ok := get_float(args[i])
 		if !right_ok {
-			return nil, fmt.tprintf("%s is not a number or float", exp_to_string(args[i]))
+			return nil, fmt.tprintf("%s is not a number or float", to_string(args[i]))
 		}
 
 		if current_left < right_val {
@@ -546,7 +540,7 @@ gte_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 }
 
 @(private = "file")
-lt_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
+lt_proc :: proc(args: [dynamic]^Expr, env: ^Env) -> (^Expr, string) {
 	// (< 1 2 3) -> T
 	// (< 1 3 2) -> NIL
 	if len(args) == 0 {
@@ -555,7 +549,7 @@ lt_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 
 	current_left, ok := get_float(args[0])
 	if !ok {
-		return nil, fmt.tprintf("%s is not a number or float", exp_to_string(args[0]))
+		return nil, fmt.tprintf("%s is not a number or float", to_string(args[0]))
 	}
 
 	if len(args) == 1 {
@@ -565,7 +559,7 @@ lt_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 	for i := 1; i < len(args); i += 1 {
 		right_val, right_ok := get_float(args[i])
 		if !right_ok {
-			return nil, fmt.tprintf("%s is not a number or float", exp_to_string(args[i]))
+			return nil, fmt.tprintf("%s is not a number or float", to_string(args[i]))
 		}
 
 		if current_left >= right_val {
@@ -579,7 +573,7 @@ lt_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 }
 
 @(private = "file")
-lte_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
+lte_proc :: proc(args: [dynamic]^Expr, env: ^Env) -> (^Expr, string) {
 	// (<= 1 2 2) -> T
 	// (<= 1 3 2) -> NIL
 	if len(args) == 0 {
@@ -588,7 +582,7 @@ lte_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 
 	current_left, ok := get_float(args[0])
 	if !ok {
-		return nil, fmt.tprintf("%s is not a number or float", exp_to_string(args[0]))
+		return nil, fmt.tprintf("%s is not a number or float", to_string(args[0]))
 	}
 
 	if len(args) == 1 {
@@ -598,7 +592,7 @@ lte_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 	for i := 1; i < len(args); i += 1 {
 		right_val, right_ok := get_float(args[i])
 		if !right_ok {
-			return nil, fmt.tprintf("%s is not a number or float", exp_to_string(args[i]))
+			return nil, fmt.tprintf("%s is not a number or float", to_string(args[i]))
 		}
 
 		if current_left > right_val {
@@ -612,7 +606,7 @@ lte_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 }
 
 @(private = "file")
-equal_sign_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
+equal_sign_proc :: proc(args: [dynamic]^Expr, env: ^Env) -> (^Expr, string) {
 	// (= 2 2 2) -> T
 	// (= 2 2 3) -> NIL
 	// (= 2 2.0) -> T
@@ -622,7 +616,7 @@ equal_sign_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 
 	current_left, ok := get_float(args[0])
 	if !ok {
-		return nil, fmt.tprintf("%s is not a number or float", exp_to_string(args[0]))
+		return nil, fmt.tprintf("%s is not a number or float", to_string(args[0]))
 	}
 
 	// In SBCL, (= value) always returns T
@@ -633,7 +627,7 @@ equal_sign_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 	for i := 1; i < len(args); i += 1 {
 		right_val, right_ok := get_float(args[i])
 		if !right_ok {
-			return nil, fmt.tprintf("%s is not a number or float", exp_to_string(args[i]))
+			return nil, fmt.tprintf("%s is not a number or float", to_string(args[i]))
 		}
 
 		if current_left != right_val {
@@ -646,127 +640,205 @@ equal_sign_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 	return new_true(), ""
 }
 
-// @(private = "file")
-// sin :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
-// 	if len(args) != 1 {
-// 		return nil, fmt.tprintf("invalid number of arguments: %d", len(args))
-// 	}
-// 	return new_float(math.sin_f64(get_float(args[0]))), ""
-// }
-//
-// @(private = "file")
-// cos :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
-// 	if len(args) != 1 {
-// 		return nil, fmt.tprintf("invalid number of arguments: %d", len(args))
-// 	}
-// 	return new_float(math.cos_f64(get_float(args[0]))), ""
-// }
-//
-// @(private = "file")
-// sqrt :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
-// 	if len(args) != 1 {
-// 		return nil, fmt.tprintf("invalid number of arguments: %d", len(args))
-// 	}
-// 	return new_float(math.sqrt_f64(get_float(args[0]))), ""
-// }
-//
-// @(private = "file")
-// abs :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
-// 	if len(args) != 1 {
-// 		return nil, fmt.tprintf("invalid number of arguments: %d", len(args))
-// 	}
-// 	return new_float(math.abs(get_float(args[0]))), ""
-// }
-//
-// @(private = "file")
-// expt :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
-// 	if len(args) != 2 {
-// 		return nil, fmt.tprintf("invalid number of arguments: %d", len(args))
-// 	}
-// 	all_int := true
-// 	if _, is_number := args[0].(ExpNumber); !is_number {
-// 		all_int = false
-// 	}
-// 	if _, is_number := args[1].(ExpNumber); !is_number {
-// 		all_int = false
-// 	}
-// 	base := get_float(args[0])
-// 	power := get_float(args[1])
-// 	return new_numeric_exp(math.pow_f64(base, power), all_int), ""
-// }
-//
-// @(private = "file")
-// max :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
-// 	// max: Returns the maximum value among the arguments
-// 	// Example: (man 1 2 3) -> 3
-// 	if len(args) == 0 {
-// 		return nil, "invalid number of arguments: 0"
-// 	}
-// 	max_val := get_float(args[0])
-// 	all_int: bool
-// 	if _, is_number := args[0].(ExpNumber); is_number {
-// 		all_int = true
-// 	}
-//
-// 	for i in 1 ..< len(args) {
-// 		val := get_float(args[i])
-// 		if val > max_val {
-// 			max_val = val
-// 		}
-// 		if _, is_number := args[i].(ExpNumber); !is_number {
-// 			all_int = false
-// 		}
-// 	}
-// 	return new_numeric_exp(max_val, all_int), ""
-// }
-//
-// @(private = "file")
-// min :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
-// 	// min: Returns the minimum value among the arguments
-// 	// Example: (min 10 1 20) -> 1
-//
-// 	if len(args) == 0 {
-// 		return nil, "invalid number of arguments: 0"
-// 	}
-// 	min_val := get_float(args[0])
-// 	all_int := false
-// 	if _, is_number := args[0].(ExpNumber); is_number {
-// 		all_int = true
-// 	}
-//
-// 	for i in 1 ..< len(args) {
-// 		val := get_float(args[i])
-// 		if val < min_val {
-// 			min_val = val
-// 		}
-// 		if _, is_number := args[i].(ExpNumber); !is_number {
-// 			all_int = false
-// 		}
-// 	}
-// 	return new_numeric_exp(min_val, all_int), ""
-// }
-//
-// @(private = "file")
-// round :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
-// 	// round: Round a number to the nearest value
-// 	// Example: (round 3.5) -> 4.0, (round 3.14) -> 3.0
-// 	if len(args) != 1 {
-// 		return nil, fmt.tprintf("invalid number of arguments: %d", len(args))
-// 	}
-// 	all_int := false
-// 	if _, is_number := args[0].(ExpNumber); is_number {
-// 		all_int = true
-// 	}
-// 	return new_numeric_exp(math.round_f64(get_float(args[0])), all_int), ""
-// }
-//
-// @(private = "file")
-list_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
-	// list: Create a new list containing all the arguments as its elements
-	// Example (list 1 2 3) -> (1, 2, 3)
-	head: ^Exp = new_nil()
+@(private = "file")
+sin_proc :: proc(args: [dynamic]^Expr, env: ^Env) -> (^Expr, string) {
+	if len(args) != 1 {
+		return nil, fmt.tprintf("invalid number of arguments: %d", len(args))
+	}
 
-	// Example: In the case of [1, 5, 4]
+	val, ok := get_float(args[0])
+	if !ok {
+		return nil, fmt.tprintf("%s is not a number or float", to_string(args[0]))
+	}
+
+	return new_float(math.sin(val)), ""
+}
+
+@(private = "file")
+cos_proc :: proc(args: [dynamic]^Expr, env: ^Env) -> (^Expr, string) {
+	if len(args) != 1 {
+		return nil, fmt.tprintf("invalid number of arguments: %d", len(args))
+	}
+
+	val, ok := get_float(args[0])
+	if !ok {
+		return nil, fmt.tprintf("%s is not a number or float", to_string(args[0]))
+	}
+
+	return new_float(math.cos(val)), ""
+}
+
+@(private = "file")
+sqrt_proc :: proc(args: [dynamic]^Expr, env: ^Env) -> (^Expr, string) {
+	if len(args) != 1 {
+		return nil, fmt.tprintf("invalid number of arguments: %d", len(args))
+	}
+
+	val, ok := get_float(args[0])
+	if !ok {
+		return nil, fmt.tprintf("%s is not a number or float", to_string(args[0]))
+	}
+
+	return new_float(math.sqrt(val)), ""
+}
+
+@(private = "file")
+abs_proc :: proc(args: [dynamic]^Expr, env: ^Env) -> (^Expr, string) {
+	if len(args) != 1 {
+		return nil, fmt.tprintf("invalid number of arguments: %d", len(args))
+	}
+
+	val, ok := get_float(args[0])
+	if !ok {
+		return nil, fmt.tprintf("%s is not a number or float", to_string(args[0]))
+	}
+
+	return new_float(math.abs(val)), ""
+}
+
+@(private = "file")
+expt_proc :: proc(args: [dynamic]^Expr, env: ^Env) -> (^Expr, string) {
+	// (expt 2 10) -> 1024
+	if len(args) != 2 {
+		return nil, fmt.tprintf("invalid number of arguments: %d", len(args))
+	}
+
+	base, base_ok := get_float(args[0])
+	if !base_ok {
+		return nil, fmt.tprintf("%s is not a number or float", to_string(args[0]))
+	}
+
+	power, power_ok := get_float(args[1])
+	if !power_ok {
+		return nil, fmt.tprintf("%s is not a number or float", to_string(args[1]))
+	}
+
+	val := math.pow(base, power)
+	int_part, frac_part := math.modf(val)
+
+	if frac_part == 0.0 {
+		return new_numeric_expr(int_part, true), ""
+	} else {
+		return new_numeric_expr(val, false), ""
+	}
+}
+
+@(private = "file")
+max_proc :: proc(args: [dynamic]^Expr, env: ^Env) -> (^Expr, string) {
+	// (max 5) -> 5
+	// (max 1 5 3) -> 5
+	// (max 1 5.0 3) -> 5.0
+	// (man 1 2 3) -> 3
+	if len(args) == 0 {
+		return nil, "invalid number of arguments: 0"
+	}
+
+	max_val, ok := get_float(args[0])
+	if !ok {
+		return nil, fmt.tprintf("%s is not a number or float", to_string(args[0]))
+	}
+
+	max_item := args[0]
+
+	if len(args) == 1 {
+		_, is_int := max_item.(ExprNumber)
+		return new_numeric_expr(max_val, is_int), ""
+	}
+
+	_, all_int := max_item.(ExprNumber)
+
+	for i := 1; i < len(args); i += 1 {
+		item := args[i]
+		val, val_ok := get_float(item)
+		if !val_ok {
+			return nil, fmt.tprintf("%s is not a number or float", to_string(item))
+		}
+
+		if _, is_int := item.(ExprNumber); !is_int {
+			all_int = false
+		}
+
+		if val > max_val {
+			max_val = val
+			max_item = item
+		}
+	}
+
+	return new_numeric_expr(max_val, all_int), ""
+}
+
+@(private = "file")
+min_proc :: proc(args: [dynamic]^Expr, env: ^Env) -> (^Expr, string) {
+	// (min 5) -> 5
+	// (min 1 5 3) -> 1
+	// (min 1 0.5 3) -> 0.5
+	// (min 1 2 3) -> 1
+	if len(args) == 0 {
+		return nil, "invalid number of arguments: 0"
+	}
+
+	min_val, ok := get_float(args[0])
+	if !ok {
+		return nil, fmt.tprintf("%s is not a number or float", to_string(args[0]))
+	}
+
+	min_item := args[0]
+
+	if len(args) == 1 {
+		_, is_int := min_item.(ExprNumber)
+		return new_numeric_expr(min_val, is_int), ""
+	}
+
+	_, all_int := min_item.(ExprNumber)
+
+	for i := 1; i < len(args); i += 1 {
+		item := args[i]
+		val, val_ok := get_float(item)
+		if !val_ok {
+			return nil, fmt.tprintf("%s is not a number or float", to_string(item))
+		}
+
+		if _, is_int := item.(ExprNumber); !is_int {
+			all_int = false
+		}
+
+		if val < min_val {
+			min_val = val
+			min_item = item
+		}
+	}
+
+	return new_numeric_expr(min_val, all_int), ""
+}
+
+@(private = "file")
+round_proc :: proc(args: [dynamic]^Expr, env: ^Env) -> (^Expr, string) {
+	// (round 3.4) -> 3
+	// (round 3.6) -> 4
+	// (round -3.6) -> -4
+	if len(args) != 1 {
+		return nil, fmt.tprintf(
+			"invalid number of arguments: %d (round requires exactly 1 argument)",
+			len(args),
+		)
+	}
+
+	val, ok := get_float(args[0])
+	if !ok {
+		return nil, fmt.tprintf("%s is not a number or float", to_string(args[0]))
+	}
+
+	rounded_val := math.round(val)
+
+	return new_numeric_expr(rounded_val, true), ""
+}
+
+@(private = "file")
+list_proc :: proc(args: [dynamic]^Expr, env: ^Env) -> (^Expr, string) {
+	// (list 1 2 3) -> (1, 2, 3)
+	head: ^Expr = new_nil()
+
+	// In the case of [1, 5, 4]
 	// 1st iteration: Cons(4, Nil)
 	// 2nd iteration: Cons(5, Cons(4, Nil))
 	// 3rd iteration: Cons(1, Cons(5, Cons(4, Nil)))
@@ -776,73 +848,73 @@ list_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 	return head, ""
 }
 
-// @(private = "file")
-// listp :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
-// 	// list?: Returns T if the argument is a list, and NIL otherwise
-// 	// Example (listp (list 1 2 3)) -> T, (listp (list)) -> T, (listp 42) -> NIL
-// 	if len(args) != 1 {
-// 		return nil, fmt.tprintf("invalid number of arguments: %d", len(args))
-// 	}
-// 	if li, is_list := args[0].(ExpList); is_list {
-// 		return new_true(), ""
-// 	}
-// 	if ni, is_nil := args[0].(ExpNil); is_nil {
-// 		return new_true(), ""
-// 	}
-// 	return new_nil(), ""
-// }
-//
-// @(private = "file")
-// car :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
-// 	// car: Returns the first element of the list
-// 	// Example: (car (list 1 2 3)) -> 1
-// 	if len(args) != 1 {
-// 		return nil, fmt.tprintf("invalid number of arguments: %d", len(args))
-// 	}
-// 	li: ExpList
-// 	is_list := false
-// 	if li, is_list = args[0].(ExpList); is_list {
-// 		is_list = true
-// 	}
-//
-// 	if len(li.list) == 0 {
-// 		return new_nil(), ""
-// 	}
-// 	if !is_list {
-// 		return nil, "car requires a list"
-// 	}
-// 	return li.list[0], ""
-// }
-//
-// @(private = "file")
-// cdr :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
-// 	// cdr: Return the elements other than the first one as a new list
-// 	// Example: (cdr '(1 2 3)) -> (2 3)
-// 	if len(args) != 1 {
-// 		return nil, fmt.tprintf("invalid number of arguments: %d", len(args))
-// 	}
-// 	// li: ExpList
-// 	// is_list := false
-// 	if _, ok := args[0].(ExpList); !ok {
-//
-// 		return nil, "cdr requires a list"
-// 	}
-// 	li := args[0].(ExpList).list
-//
-// 	if len(li) == 0 {
-// 		return new_nil(), ""
-// 	}
-// 	pop_front(&li)
-//
-// 	return new_list(li), ""
-// }
-//
 @(private = "file")
-cons_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
-	// cons: Add an element to the beginning of the list
-	// Example: (cons 1 2)      -> (1 . 2)
-	//          (cons 1 (list)) -> (1)
-	//          (cons 1 NIL)    -> (1)
+listp_proc :: proc(args: [dynamic]^Expr, env: ^Env) -> (^Expr, string) {
+	// (listp (list 1 2 3)) -> T
+	// (listp (list)) -> T
+	// (listp 42) -> NIL
+	if len(args) != 1 {
+		return nil, fmt.tprintf("invalid number of arguments: %d", len(args))
+	}
+
+	target := args[0]
+
+	#partial switch _ in target {
+	case ExprCons, ExprNil:
+		return new_true(), ""
+	case:
+		return new_nil(), ""
+	}
+}
+
+@(private = "file")
+car_proc :: proc(args: [dynamic]^Expr, env: ^Env) -> (^Expr, string) {
+	// (car (list 1 2 3)) -> 1
+	// (car NIL) -> NIL
+	// (car (list)) -> NIL
+	if len(args) != 1 {
+		return nil, fmt.tprintf("invalid number of arguments: %d", len(args))
+	}
+
+	target := args[0]
+
+	#partial switch t in target {
+	case ExprCons:
+		return t.car, ""
+	case ExprNil:
+		return new_nil(), ""
+	case:
+		return nil, fmt.tprintf("%s is not a list", to_string(target))
+	}
+}
+
+@(private = "file")
+cdr_proc :: proc(args: [dynamic]^Expr, env: ^Env) -> (^Expr, string) {
+	// (cdr '(1 2 3)) -> (2 3)
+	// (cdr (cons 1 2)) -> 2
+	// (cdr NIL) -> NIL
+	// (cdr (list)) -> NIL
+	if len(args) != 1 {
+		return nil, fmt.tprintf("invalid number of arguments: %d", len(args))
+	}
+
+	target := args[0]
+
+	#partial switch t in target {
+	case ExprCons:
+		return t.cdr, ""
+	case ExprNil:
+		return new_nil(), ""
+	case:
+		return nil, fmt.tprintf("%s is not a list", to_string(target))
+	}
+}
+
+@(private = "file")
+cons_proc :: proc(args: [dynamic]^Expr, env: ^Env) -> (^Expr, string) {
+	// (cons 1 2) -> (1 . 2)
+	// (cons 1 (list)) -> (1)
+	// (cons 1 NIL) -> (1)
 	if len(args) != 2 {
 		return nil, "cons: expected exactly 2 arguments"
 	}
@@ -853,239 +925,218 @@ cons_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 	return new_cons(car, cdr), ""
 }
 
-// @(private = "file")
-// append_ :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
-// 	// append: Combine multiple lists into one list
-// 	// Example: (append (list 1 2) (list 3 4))    -> (1 2 3 4)
-// 	//          (append (list 1) (list) (list 2)) -> (1 2)
-// 	//          (append)                          -> NIL
-// 	if len(args) == 0 {
-// 		return new_nil(), ""
-// 	}
-//
-// 	new_li: [dynamic]^Exp
-//
-// 	for arg in args {
-// 		#partial switch s in arg {
-// 		case ExpNil:
-// 			// Skip NIL (empty list) so that it does not affect the concatenation
-// 			continue
-// 		case ExpList:
-// 			for item in s.list {
-// 				append(&new_li, item)
-// 			}
-// 		case:
-// 			// If adhering strictly to specifications like those of Common Lisp,
-// 			// the final argument can be an atom, forming a dotted pair; however, for the sake of simplicity,
-// 			// we will initially limit this to the concatenation of lists.
-// 			return nil, fmt.tprintf("The value %s is not of type LIST", exp_to_string(arg))
-// 		}
-// 	}
-//
-// 	if len(new_li) == 0 {
-// 		return new_nil(), ""
-// 	}
-// 	return new_list(new_li), ""
-// }
-//
-// @(private = "file")
-// nullp :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
-// 	// null: Returns T if the list is empty (contains 0 elements), and 0 (false) otherwise
-// 	// Example: (null (list))   -> T
-// 	//          (null NIL)      -> T
-// 	//          (null (list 1)) -> NIL
-// 	//          (null 42)       -> NIL
-// 	if len(args) != 1 {
-// 		return nil, fmt.tprintf("invalid number of arguments: %d", len(args))
-// 	}
-// 	ni: ExpNil
-// 	is_nil := false
-// 	if ni, is_nil = args[0].(ExpNil); is_nil {
-// 		is_nil = true
-// 	}
-// 	if is_nil {
-// 		return new_true(), ""
-// 	}
-// 	return new_nil(), ""
-// }
-//
-// @(private = "file")
-// print :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
-// 	// print: print out
-// 	if len(args) == 0 {
-// 		return nil, "invalid number of arguments: 0"
-// 	}
-// 	fmt.println(exp_to_string(args[0]))
-// 	return args[0], ""
-// }
-//
-// is_equal :: proc(a: ^Exp, b: ^Exp) -> bool {
-// 	if a == b {
-// 		return true
-// 	}
-//
-// 	#partial switch v_a in a {
-// 	case ExpSymbol:
-// 		v_b, ok := b.(ExpSymbol)
-// 		if !ok {return false}
-// 		return v_a.sym == v_b.sym
-// 	case ExpNumber:
-// 		v_b, ok := b.(ExpNumber)
-// 		if !ok {return false}
-// 		return v_a.num == v_b.num
-// 	case ExpFloat:
-// 		v_b, ok := b.(ExpFloat)
-// 		if !ok {return false}
-// 		return v_a.flo == v_b.flo
-// 	case ExpString:
-// 		v_b, ok := b.(ExpString)
-// 		if !ok {return false}
-// 		return v_a.str == v_b.str
-// 	case ExpProc, ExpLambda:
-// 		return a == b
-// 	case ExpNil:
-// 		v_b, ok := b.(ExpNil)
-// 		if !ok {return false}
-// 		return true
-// 	case ExpTrue:
-// 		v_b, ok := b.(ExpTrue)
-// 		if !ok {return false}
-// 		return true
-// 	case ExpCons:
-// 		v_b, ok := b.(ExpCons)
-// 		if !ok {return false}
-// 		return is_equal(v_a.car, v_b.car) == is_equal(v_a.cdr, v_b.cdr)
-// 	case ExpList:
-// 		v_b, ok := b.(ExpList)
-// 		if !ok {return false}
-//
-// 		if len(v_a.list) != len(v_b.list) {return false}
-//
-// 		for i in 0 ..< len(v_a.list) {
-// 			if !is_equal(v_a.list[i], v_b.list[i]) {
-// 				return false
-// 			}
-// 		}
-// 		return true
-// 	}
-// 	return false
-// }
-//
-// @(private = "file")
-// equal :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
-// 	// equal: Comparison of structure and content
-// 	if len(args) != 2 {
-// 		return nil, fmt.tprintf("invalid number of arguments: %d", len(args))
-// 	}
-// 	if is_equal(args[0], args[1]) {
-// 		return new_true(), ""
-// 	}
-// 	return new_nil(), ""
-// }
-//
-// is_sequence :: proc(expr: ^Exp) -> bool {
-// 	#partial switch e in expr {
-// 	case ExpSymbol, ExpNumber, ExpFloat, ExpProc, ExpLambda, ExpTrue:
-// 		return false
-// 	case ExpList, ExpString, ExpCons:
-// 		return true
-// 	}
-// 	unimplemented("Reached the end of is_sequence()")
-// }
-//
-// @(private = "file")
-// length :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
-// 	// length: Returns the number of elements in the list
-// 	if len(args) != 1 {
-// 		return nil, fmt.tprintf("invalid number of arguments: %d", len(args))
-// 	}
-// 	if _, is_nil := args[0].(ExpNil); is_nil {
-// 		return new_int(0), ""
-// 	}
-// 	fmt.println(args[0])
-// 	if !is_sequence(args[0]) {
-// 		return nil, fmt.tprintf("The value %s is not of type SEQUENCE", exp_to_string(args[0]))
-// 	}
-// 	if cons, is_cons := args[0].(ExpCons); is_cons {
-// 		return nil, fmt.tprintf("The value %s is not of type LIST", exp_to_string(cons.cdr))
-// 	}
-// 	#partial switch arg in args[0] {
-// 	case ExpList:
-// 		return new_int(i64(len(arg.list))), ""
-// 	case ExpString:
-// 		return new_int(i64(len(arg.str))), ""
-// 	}
-// 	unimplemented("Reached the end of length()")
-// }
-//
-// @(private = "file")
-// numberp :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
-// 	// numberp: Returns T if the argument is a number (an integer or a floating-point number), and NIL otherwise
-// 	// Example: (number? 42) -> T, (number? 3.14) -> T, (number? (quote a)) -> NIL
-// 	if len(args) != 1 {
-// 		return nil, fmt.tprintf("invalid number of arguments: %d", len(args))
-// 	}
-//
-// 	is_num := false
-// 	#partial switch _ in args[0] {
-// 	case ExpNumber, ExpFloat:
-// 		is_num = true
-// 	}
-// 	if is_num {
-// 		return new_true(), ""
-// 	}
-// 	return new_nil(), ""
-// }
-//
-// @(private = "file")
-// functionp :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
-// 	// functionp: Returns T if the argument is a built-in function or a lambda, and NIL otherwise
-// 	// Example: (procedure? +) -> T, (procedure? (lambda (x) x)) -> T, (procedure? 42) -> NIL
-// 	if len(args) != 1 {
-// 		return nil, fmt.tprintf("invalid number of arguments: %d", len(args))
-// 	}
-//
-// 	is_func := false
-// 	#partial switch _ in args[0] {
-// 	case ExpProc, ExpLambda:
-// 		is_func = true
-// 	}
-// 	if is_func {
-// 		return new_true(), ""
-// 	}
-// 	return new_nil(), ""
-// }
-//
-// @(private = "file")
-// symbolp :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
-// 	// symbolp: Returns T if the argument is a symbol, and NIL otherwise
-// 	// Example: (symbol? (quote foo)) -> T, (symbol? 42) -> NIL
-// 	if len(args) != 1 {
-// 		return nil, fmt.tprintf("invalid number of arguments: %d", len(args))
-// 	}
-//
-// 	is_sym := false
-// 	#partial switch _ in args[0] {
-// 	case ExpSymbol:
-// 		is_sym = true
-// 	}
-// 	if is_sym {
-// 		return new_true(), ""
-// 	}
-// 	return new_nil(), ""
-// }
+@(private = "file")
+append_proc :: proc(args: [dynamic]^Expr, env: ^Env) -> (^Expr, string) {
+	// (append (list 1 2) (list 3 4)) -> (1 2 3 4)
+	// (append (list 1) (list) (list 2)) -> (1 2)
+	// (append) -> NIL
+	if len(args) == 0 {
+		return new_nil(), ""
+	}
 
+	if len(args) == 1 {
+		return args[0], ""
+	}
+
+	res := args[len(args) - 1]
+
+	for i := len(args) - 2; i >= 0; i -= 1 {
+		current_list := args[i]
+
+		param_slices, list_ok := flatten_list(current_list)
+		if !list_ok {
+			return nil, fmt.tprintf("%s is not a proper list", to_string(current_list))
+		}
+
+		for j := len(param_slices) - 1; j >= 0; j -= 1 {
+			car := param_slices[j]
+			cdr := res
+			res = new_cons(car, cdr)
+		}
+	}
+
+	return res, ""
+}
 
 @(private = "file")
-load_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
-	// Example: (load "examples\\demo.scm") or (load filename)
+null_proc :: proc(args: [dynamic]^Expr, env: ^Env) -> (^Expr, string) {
+	// (null (list)) -> T
+	// (null NIL) -> T
+	// (null (list 1)) -> NIL
+	// (null 42) -> NIL
+	if len(args) != 1 {
+		return nil, fmt.tprintf("invalid number of arguments: %d", len(args))
+	}
+
+	target := args[0]
+
+	#partial switch t in target {
+	case ExprNil:
+		return new_true(), ""
+	case:
+		return new_nil(), ""
+	}
+}
+
+@(private = "file")
+print_proc :: proc(args: [dynamic]^Expr, env: ^Env) -> (^Expr, string) {
+	// (print 1) -> 1 1
+	if len(args) == 0 {
+		return nil, "invalid number of arguments: 0"
+	}
+	fmt.println(to_string(args[0]))
+	return args[0], ""
+}
+
+@(private = "file")
+is_equal :: proc(a: ^Expr, b: ^Expr) -> bool {
+	if a == b {
+		return true
+	}
+
+	#partial switch v_a in a {
+	case ExprSymbol:
+		v_b, ok := b.(ExprSymbol)
+		return ok && v_a.sym == v_b.sym
+	case ExprNumber:
+		v_b, ok := b.(ExprNumber)
+		return ok && v_a.num == v_b.num
+	case ExprFloat:
+		v_b, ok := b.(ExprFloat)
+		return ok && v_a.flo == v_b.flo
+	case ExprString:
+		v_b, ok := b.(ExprString)
+		return ok && v_a.str == v_b.str
+	case ExprProc, ExprLambda:
+		return a == b
+	case ExprNil:
+		_, ok := b.(ExprNil)
+		return ok
+	case ExprTrue:
+		_, ok := b.(ExprTrue)
+		return ok
+	case ExprCons:
+		v_b, ok := b.(ExprCons)
+		if !ok {
+			return false
+		}
+		return is_equal(v_a.car, v_b.car) && is_equal(v_a.cdr, v_b.cdr)
+	}
+	return false
+}
+
+@(private = "file")
+equal_proc :: proc(args: [dynamic]^Expr, env: ^Env) -> (^Expr, string) {
+	// (equal (list 1) (list 1)) -> T
+	// (equal (list 1) (list 1 2)) -> NIL
+	if len(args) != 2 {
+		return nil, fmt.tprintf("invalid number of arguments: %d", len(args))
+	}
+	if is_equal(args[0], args[1]) {
+		return new_true(), ""
+	}
+	return new_nil(), ""
+}
+
+@(private = "file")
+length_proc :: proc(args: [dynamic]^Expr, env: ^Env) -> (^Expr, string) {
+	// (length (list 1 2 3)) -> 3
+	// (length "abcde") -> 5
+	// (length NIL) -> 0
+	// (length (list)) -> 0
+	if len(args) != 1 {
+		return nil, fmt.tprintf("invalid number of arguments: %d", len(args))
+	}
+
+	target := args[0]
+
+	#partial switch t in target {
+	case ExprCons:
+		slices, ok := flatten_list(target)
+		if !ok {
+			return nil, "length parameters must be a proper list"
+		}
+		return new_int(i64(len(slices))), ""
+	case ExprString:
+		return new_int(i64(len(t.str))), ""
+	case ExprNil:
+		return new_int(0), ""
+	case:
+		return nil, fmt.tprintf("The value %s is not of type SEQUENCE", to_string(target))
+	}
+}
+
+@(private = "file")
+numberp_proc :: proc(args: [dynamic]^Expr, env: ^Env) -> (^Expr, string) {
+	// (numberp 42) -> T
+	// (numberp 3.14) -> T
+	// (numberp (quote a)) -> NIL
+	if len(args) != 1 {
+		return nil, fmt.tprintf("invalid number of arguments: %d", len(args))
+	}
+
+	target := args[0]
+
+	#partial switch _ in target {
+	case ExprNumber, ExprFloat:
+		return new_true(), ""
+	case:
+		return new_nil(), ""
+	}
+}
+
+@(private = "file")
+functionp_proc :: proc(args: [dynamic]^Expr, env: ^Env) -> (^Expr, string) {
+	// (functionp +) -> T
+	// (functionp (lambda (x) x)) -> T
+	// (functionp 42) -> NIL
+	if len(args) != 1 {
+		return nil, fmt.tprintf("invalid number of arguments: %d", len(args))
+	}
+
+	target := args[0]
+
+	#partial switch _ in target {
+	case ExprProc, ExprLambda:
+		return new_true(), ""
+	case:
+		return new_nil(), ""
+	}
+}
+
+@(private = "file")
+symbolp_proc :: proc(args: [dynamic]^Expr, env: ^Env) -> (^Expr, string) {
+	// (symbolp (quote foo)) -> T
+	// (symbolp 42) -> NIL
+	if len(args) != 1 {
+		return nil, fmt.tprintf("invalid number of arguments: %d", len(args))
+	}
+
+	target := args[0]
+
+	#partial switch _ in target {
+	case ExprSymbol:
+		return new_true(), ""
+	case:
+		return new_nil(), ""
+	}
+}
+
+@(private = "file")
+load_proc :: proc(args: [dynamic]^Expr, env: ^Env) -> (^Expr, string) {
+	// (load "examples\\demo.scm")
+	// or
+	// (define filepath "examples\\demo.scm")
+	// (load filepath)
 	if len(args) != 1 {
 		return nil, "load requires exactly 1 argument (filename as a symbol or string)"
 	}
 
+	target := args[0]
+
 	is_filename := false
-	#partial switch _ in args[0] {
-	case ExpSymbol, ExpString:
+	#partial switch _ in target {
+	case ExprSymbol, ExprString:
 		is_filename = true
 	}
 	if !is_filename {
@@ -1093,14 +1144,14 @@ load_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 	}
 
 	filename: string
-	#partial switch arg in args[0] {
-	case ExpSymbol:
-		if s, ok := env.bindings[arg.sym].(ExpString); !ok {
+	#partial switch arg in target {
+	case ExprSymbol:
+		if s, ok := env.bindings[arg.sym].(ExprString); !ok {
 			return nil, fmt.tprintf("%s is not string type", arg.sym)
 		} else {
 			filename = s.str
 		}
-	case ExpString:
+	case ExprString:
 		filename = arg.str
 	}
 
@@ -1111,10 +1162,10 @@ load_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 
 	r := init_reader(string(data))
 
-	last_result: ^Exp = nil
+	last_result: ^Expr = nil
 
 	for {
-		expr: ^Exp
+		expr: ^Expr
 		read_err: string
 		if expr, read_err = read(&r); read_err != "" {
 			return nil, read_err

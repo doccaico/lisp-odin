@@ -46,10 +46,10 @@ main :: proc() {
 	r := init_reader(string(data))
 
 	for {
-		expr: ^Exp
-		msg: string
-		if expr, msg = read(&r); msg != "" {
-			fmt.println(msg)
+		expr: ^Expr
+		read_err: string
+		if expr, read_err = read(&r); read_err != "" {
+			fmt.println(read_err)
 			os.exit(1)
 		}
 
@@ -57,8 +57,8 @@ main :: proc() {
 			break
 		}
 
-		if expr, msg := eval(expr, global_env); msg != "" {
-			fmt.println(msg)
+		if _, eval_err := eval(expr, global_env); eval_err != "" {
+			fmt.println(eval_err)
 			os.exit(1)
 		}
 	}
