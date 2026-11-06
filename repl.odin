@@ -26,6 +26,7 @@ repl :: proc(prompt: string, global_env: ^Env) {
 		input := bufio.scanner_text(&scanner)
 
 		if len(input) == 0 {
+			fmt.print(prompt)
 			continue
 		}
 

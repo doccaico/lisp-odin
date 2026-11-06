@@ -1,5 +1,7 @@
 package main
 
+import "core:fmt"
+import "core:math"
 import "core:strconv"
 import "core:strings"
 
@@ -49,7 +51,7 @@ read :: proc(r: ^Reader) -> (^Expr, string) {
 		return nil, ""
 	}
 	// If it's not a quote or parenthesis, it's guaranteed to be an atom
-	return read_atom(r), ""
+	return read_atom(r)
 }
 
 // Advance one character (consume input)
@@ -105,7 +107,10 @@ skip_whitespace :: proc "contextless" (r: ^Reader, skip_comment: bool = false) {
 read_string :: proc(r: ^Reader) -> (string, string) {
 	// Skip the starting double quote
 	next_char(r)
-	sb := strings.builder_make()
+	sb, err := strings.builder_make()
+	if err != .None {
+		return "", "failed to allocate"
+	}
 
 	for {
 		if r.ch == '"' {
@@ -221,30 +226,146 @@ read_list :: proc(r: ^Reader) -> (^Expr, string) {
 }
 
 @(private = "file")
-read_atom :: proc(r: ^Reader) -> ^Expr {
+convert_prefixed_token :: proc(s: string) -> (string, string) {
+	if len(s) >= 2 && s[0] == '#' {
+		sb, err := strings.builder_make()
+		if err != .None {
+			return "", "failed to allocate"
+		}
+		prefix: string
+
+		switch s[1] {
+		case 'd', 'D':
+			prefix = "0d"
+		case 'x', 'X':
+			prefix = "0x"
+		case 'o', 'O':
+			prefix = "0o"
+		case 'b', 'B':
+			prefix = "0b"
+		}
+		if s[2] == '+' {
+			strings.write_string(&sb, prefix)
+			strings.write_string(&sb, s[3:])
+		} else if s[2] == '-' {
+			strings.write_string(&sb, "-")
+			strings.write_string(&sb, prefix)
+			strings.write_string(&sb, s[3:])
+		} else {
+			strings.write_string(&sb, prefix)
+			strings.write_string(&sb, s[2:])
+
+		}
+		return strings.to_string(sb), ""
+	}
+	return s, ""
+}
+
+@(private = "file")
+is_integer_token :: proc "contextless" (s: string) -> bool {
+	start := 0
+	if s[0] == '+' || s[0] == '-' {
+		start = 1
+		if len(s) == 1 {
+			return false
+		}
+	}
+
+	for i := 0; i < len(s); i += 1 {
+		if s[i] == '.' || s[i] == 'e' || s[i] == 'E' {
+			return false
+		}
+	}
+
+	if s[start] == '0' && len(s) > start + 1 {
+		c := s[start + 1]
+		switch c {
+		case 'd', 'x', 'o', 'b':
+			return true
+		}
+	}
+
+	return s[start] >= '0' && s[start] <= '9'
+}
+
+@(private = "file")
+is_float_token :: proc "contextless" (s: string) -> bool {
+	start := 0
+	if s[0] == '+' || s[0] == '-' {
+		start = 1
+		if len(s) == 1 {
+			return false
+		}
+	}
+
+	has_digit := false
+	has_dot_or_exp := false
+
+	for i := start; i < len(s); i += 1 {
+		c := s[i]
+		if c >= '0' && c <= '9' {
+			has_digit = true
+		} else if c == '.' || c == 'e' || c == 'E' || c == '+' || c == '-' {
+			if c == '.' || c == 'e' || c == 'E' {
+				has_dot_or_exp = true
+			}
+		} else {
+			return false
+		}
+	}
+
+	return has_digit && has_dot_or_exp
+}
+
+@(private = "file")
+read_atom :: proc(r: ^Reader) -> (^Expr, string) {
 	start_pos := r.position
 
 	for !is_delimiter(r.ch) {
 		next_char(r)
 	}
+
 	token := r.input[start_pos:r.position]
 
-	switch token {
-	case "t", "T":
-		return new_true()
-	case "nil", "NIL":
-		return new_nil()
+	switch strings.to_upper(token) {
+	case "T":
+		return new_true(), ""
+	case "NIL":
+		return new_nil(), ""
 	}
 
-	i_num, i_ok := strconv.parse_i64_maybe_prefixed(token)
-	if i_ok {
-		return new_int(i_num)
+	cleaned_token, err := convert_prefixed_token(token)
+	if err != "" {
+		return nil, err
 	}
 
-	f_num, f_ok := strconv.parse_f64(token)
-	if f_ok {
-		return new_float(f_num)
+	if is_integer_token(cleaned_token) {
+		i128_num, i128_ok := strconv.parse_i128_maybe_prefixed(cleaned_token)
+		if i128_ok {
+			if i128_num >= i128(min(i64)) && i128_num <= i128(max(i64)) {
+				return new_int(i64(i128_num)), ""
+			} else {
+				return nil, fmt.tprintf("The integer is too large (i64 overflow): %s", token)
+			}
+		} else {
+			return nil, fmt.tprintf(
+				"The integer is too large (i128 overflow) or contains invalid characters: %s",
+				token,
+			)
+		}
 	}
 
-	return new_symbol(token)
+	if is_float_token(cleaned_token) {
+		f_num, f_ok := strconv.parse_f64(cleaned_token)
+		if f_ok {
+			return new_float(f_num), ""
+		} else {
+			return nil, fmt.tprintf(
+				"The float is too large (f64 overflow) or contains invalid characters: %s",
+				token,
+			)
+		}
+	}
+
+	return new_symbol(token), ""
 }
