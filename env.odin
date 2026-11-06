@@ -74,7 +74,7 @@ find_env :: proc(env: ^Env, name: string) -> ^Env {
 }
 
 @(private = "file")
-new_numeric_expr :: proc(flo: f64, is_all_int: bool) -> ^Expr {
+new_numeric_expr :: #force_inline proc(flo: f64, is_all_int: bool) -> ^Expr {
 	if is_all_int {
 		return new_int(i64(flo))
 	}
@@ -82,7 +82,7 @@ new_numeric_expr :: proc(flo: f64, is_all_int: bool) -> ^Expr {
 }
 
 @(private = "file")
-get_float :: proc(exp: ^Expr) -> (f64, bool) {
+get_float :: #force_inline proc "contextless" (exp: ^Expr) -> (f64, bool) {
 	#partial switch e in exp {
 	case ExprNumber:
 		return f64(e.num), true
@@ -106,9 +106,9 @@ if_proc :: proc(args: [dynamic]^Expr, env: ^Env) -> (^Expr, string) {
 	test := args[0]
 	conseq := args[1]
 	alt := args[2]
-	test_res, test_res_err_msg := eval(test, env)
-	if test_res_err_msg != "" {
-		return nil, test_res_err_msg
+	test_res, test_res_err := eval(test, env)
+	if test_res_err != "" {
+		return nil, test_res_err
 	}
 	is_true := true
 	#partial switch tr in test_res {

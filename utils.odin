@@ -3,7 +3,7 @@ package main
 import "core:fmt"
 import "core:strings"
 
-new_symbol :: proc(s: string) -> ^Expr {
+new_symbol :: #force_inline proc(s: string) -> ^Expr {
 	exp := new(Expr)
 	exp^ = ExprSymbol {
 		sym = s,
@@ -11,19 +11,19 @@ new_symbol :: proc(s: string) -> ^Expr {
 	return exp
 }
 
-new_nil :: proc() -> ^Expr {
+new_nil :: #force_inline proc() -> ^Expr {
 	exp := new(Expr)
 	exp^ = ExprNil{}
 	return exp
 }
 
-new_true :: proc() -> ^Expr {
+new_true :: #force_inline proc() -> ^Expr {
 	exp := new(Expr)
 	exp^ = ExprTrue{}
 	return exp
 }
 
-new_int :: proc(num: i64) -> ^Expr {
+new_int :: #force_inline proc(num: i64) -> ^Expr {
 	exp := new(Expr)
 	exp^ = ExprNumber {
 		num = num,
@@ -31,7 +31,7 @@ new_int :: proc(num: i64) -> ^Expr {
 	return exp
 }
 
-new_float :: proc(flo: f64) -> ^Expr {
+new_float :: #force_inline proc(flo: f64) -> ^Expr {
 	exp := new(Expr)
 	exp^ = ExprFloat {
 		flo = flo,
@@ -39,7 +39,7 @@ new_float :: proc(flo: f64) -> ^Expr {
 	return exp
 }
 
-new_str :: proc(s: string) -> ^Expr {
+new_str :: #force_inline proc(s: string) -> ^Expr {
 	exp := new(Expr)
 	exp^ = ExprString {
 		str = s,
@@ -47,7 +47,7 @@ new_str :: proc(s: string) -> ^Expr {
 	return exp
 }
 
-new_cons :: proc(car: ^Expr, cdr: ^Expr) -> ^Expr {
+new_cons :: #force_inline proc(car: ^Expr, cdr: ^Expr) -> ^Expr {
 	exp := new(Expr)
 	exp^ = ExprCons {
 		car = car,
@@ -56,7 +56,7 @@ new_cons :: proc(car: ^Expr, cdr: ^Expr) -> ^Expr {
 	return exp
 }
 
-new_proc :: proc(p: LispProc, is_special: bool) -> ^Expr {
+new_proc :: #force_inline proc(p: LispProc, is_special: bool) -> ^Expr {
 	exp := new(Expr)
 	exp^ = ExprProc {
 		pro        = p,
@@ -65,7 +65,7 @@ new_proc :: proc(p: LispProc, is_special: bool) -> ^Expr {
 	return exp
 }
 
-new_lambda :: proc(params: [dynamic]string, body: ^Expr, closure: ^Env) -> ^Expr {
+new_lambda :: #force_inline proc(params: [dynamic]string, body: ^Expr, closure: ^Env) -> ^Expr {
 	exp := new(Expr)
 	exp^ = ExprLambda {
 		params  = params,
@@ -85,9 +85,9 @@ flatten_list :: proc(list_exp: ^Expr) -> ([]^Expr, bool) {
 			append(&res, c.car)
 			current = c.cdr
 		case ExprNil:
-			return res[:], true // 正常なリスト
+			return res[:], true // Proper list
 		case:
-			// ドット対（不完全なリスト）の場合
+			// Dotted pair (improper list)
 			append(&res, current)
 			return res[:], false
 		}

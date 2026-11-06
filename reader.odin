@@ -54,7 +54,7 @@ read :: proc(r: ^Reader) -> (^Expr, string) {
 
 // Advance one character (consume input)
 @(private = "file")
-next_char :: proc(r: ^Reader) {
+next_char :: proc "contextless" (r: ^Reader) {
 	if r.read_position >= len(r.input) {
 		// Nul character signifies end of input
 		r.ch = '\x00'
@@ -66,7 +66,7 @@ next_char :: proc(r: ^Reader) {
 }
 
 @(private = "file")
-is_delimiter :: #force_inline proc(ch: byte) -> bool {
+is_delimiter :: #force_inline proc "contextless" (ch: byte) -> bool {
 	// Whitespace, parentheses, quotes, or EOF are delimiters
 	switch ch {
 	case ' ', '\t', '\r', '\n', '(', ')', '"', '\x00':
@@ -78,7 +78,7 @@ is_delimiter :: #force_inline proc(ch: byte) -> bool {
 
 // Skip whitespaces and comments (lines starting with ';')
 @(private = "file")
-skip_whitespace :: proc(r: ^Reader, skip_comment: bool = false) {
+skip_whitespace :: proc "contextless" (r: ^Reader, skip_comment: bool = false) {
 	for {
 		// Skip standard whitespaces
 		switch r.ch {
