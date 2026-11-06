@@ -23,14 +23,15 @@ standard_env :: proc() -> ^Env {
 
 	env.bindings["+"] = new_proc(add_proc, is_special = false)
 	env.bindings["-"] = new_proc(sub_proc, is_special = false)
-	// env.bindings["*"] = new_proc(mul)
-	// env.bindings["/"] = new_proc(div)
-	// env.bindings[">"] = new_proc(gt)
-	// env.bindings[">="] = new_proc(gte)
-	// env.bindings["<"] = new_proc(lt)
-	// env.bindings["<="] = new_proc(lte)
-	// env.bindings["="] = new_proc(eq)
-	//
+	env.bindings["*"] = new_proc(mul_proc, is_special = false)
+	env.bindings["/"] = new_proc(div_proc, is_special = false)
+
+	env.bindings[">"] = new_proc(gt_proc, is_special = false)
+	env.bindings[">="] = new_proc(gte_proc, is_special = false)
+	env.bindings["<"] = new_proc(lt_proc, is_special = false)
+	env.bindings["<="] = new_proc(lte_proc, is_special = false)
+	env.bindings["="] = new_proc(equal_sign_proc, is_special = false)
+
 	// env.bindings["pi"] = new_float(math.PI)
 	// env.bindings["sin"] = new_proc(sin)
 	// env.bindings["cos"] = new_proc(cos)
@@ -403,177 +404,248 @@ sub_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 	return new_numeric_expr(sum, all_int), ""
 }
 
-// @(private = "file")
-// mul :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
-// 	if len(args) == 0 {
-// 		return new_int(1), ""
-// 	}
-// 	sum := get_float(args[0])
-// 	all_int: bool
-// 	if _, ok := args[0].(ExpNumber); ok {
-// 		all_int = true
-// 	}
-//
-// 	for i in 1 ..< len(args) {
-// 		sum *= get_float(args[i])
-// 		if _, is_number := args[0].(ExpNumber); !is_number {
-// 			all_int = false
-// 		}
-// 	}
-//
-// 	return new_numeric_exp(sum, all_int), ""
-// }
-//
-// @(private = "file")
-// div :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
-// 	if len(args) == 0 {
-// 		return nil, "invalid number of arguments: 0"
-// 	}
-// 	if len(args) == 1 {
-// 		val := new(Exp)
-// 		if get_float(args[0]) == 0.0 {
-// 			#partial switch arg in args[0] {
-// 			case ExpNumber:
-// 				return nil, fmt.tprintf("operation was (/ 1 %s)", exp_to_string(new_int(arg.num)))
-// 			case ExpFloat:
-// 				return nil, fmt.tprintf(
-// 					"operation was (/ 1 %s)",
-// 					exp_to_string(new_float(arg.flo)),
-// 				)
-// 			}
-// 		}
-// 		_, is_number := args[0].(ExpNumber)
-// 		return new_numeric_exp(1.0 / get_float(args[0]), is_number), ""
-// 	}
-//
-// 	sum := get_float(args[0])
-// 	all_int: bool
-// 	if _, is_number := args[0].(ExpNumber); is_number {
-// 		all_int = true
-// 	}
-//
-// 	for i in 1 ..< len(args) {
-// 		val := new(Exp)
-// 		#partial switch arg in args[0] {
-// 		case ExpNumber:
-// 			val = new_int(arg.num)
-// 		case ExpFloat:
-// 			val = new_float(arg.flo)
-// 		}
-// 		if get_float(val) == 0.0 {
-// 			real_sum := all_int ? new_int(i64(sum)) : new_float(sum)
-// 			return nil, fmt.tprintf(
-// 				"operation was (/ %s %s)",
-// 				exp_to_string(real_sum),
-// 				exp_to_string(val),
-// 			)
-// 		}
-// 		sum /= get_float(args[i])
-// 		if _, is_number := args[0].(ExpNumber); !is_number {
-// 			all_int = false
-// 		}
-// 	}
-//
-// 	return new_numeric_exp(sum, all_int), ""
-// }
-//
-// // Comparison operations (return T for true, NIL for false)
-// // If there is only one argument, return T
-// @(private = "file")
-// gt :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
-// 	// Example: (> 3 2 1) -> T, (> 3 2 10) -> NIL
-// 	if len(args) == 0 {
-// 		return nil, "invalid number of arguments: 0"
-// 	}
-// 	if len(args) == 1 {
-// 		return new_true(), ""
-// 	}
-// 	for i in 0 ..< len(args) - 1 {
-// 		left := get_float(args[i])
-// 		right := get_float(args[i + 1])
-// 		if left <= right {
-// 			return new_nil(), ""
-// 		}
-// 	}
-// 	return new_true(), ""
-// }
-//
-// @(private = "file")
-// gte :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
-// 	// Example: (>= 3 2 2) -> T, (>= 3 2 10) -> NIL
-// 	if len(args) == 0 {
-// 		return nil, "invalid number of arguments: 0"
-// 	}
-// 	if len(args) == 1 {
-// 		return new_true(), ""
-// 	}
-// 	for i in 0 ..< len(args) - 1 {
-// 		left := get_float(args[i])
-// 		right := get_float(args[i + 1])
-// 		if left < right {
-// 			return new_nil(), ""
-// 		}
-// 	}
-// 	return new_true(), ""
-// }
-//
-// @(private = "file")
-// lt :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
-// 	// Example: (< 1 2 3) -> T, (< 1 3 2) -> NIL
-// 	if len(args) == 0 {
-// 		return nil, "invalid number of arguments: 0"
-// 	}
-// 	if len(args) == 1 {
-// 		return new_true(), ""
-// 	}
-// 	for i in 0 ..< len(args) - 1 {
-// 		left := get_float(args[i])
-// 		right := get_float(args[i + 1])
-// 		if left >= right {
-// 			return new_nil(), ""
-// 		}
-// 	}
-// 	return new_true(), ""
-// }
-//
-// @(private = "file")
-// lte :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
-// 	// Example: (<= 1 2 2) -> T, (<= 1 3 2) -> NIL
-// 	if len(args) == 0 {
-// 		return nil, "invalid number of arguments: 0"
-// 	}
-// 	if len(args) == 1 {
-// 		return new_true(), ""
-// 	}
-// 	for i in 0 ..< len(args) - 1 {
-// 		left := get_float(args[i])
-// 		right := get_float(args[i + 1])
-// 		if left > right {
-// 			return new_nil(), ""
-// 		}
-// 	}
-// 	return new_true(), ""
-// }
-//
-// @(private = "file")
-// eq :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
-// 	// eq: Comparison for numeric values only
-// 	if len(args) == 0 {
-// 		return nil, "invalid number of arguments: 0"
-// 	}
-// 	if len(args) == 1 {
-// 		return new_true(), "" // In SBCL, (= value) always returns T
-// 	}
-// 	first_val := get_float(args[0])
-// 	for i in 1 ..< len(args) {
-// 		val := get_float(args[i])
-// 		if val != first_val {
-// 			return new_nil(), ""
-// 		}
-// 	}
-// 	return new_true(), ""
-// }
-//
+@(private = "file")
+mul_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
+	// (*) -> 1
+	// (* 10) -> 10
+	// (* 2 5 10) -> 100
+	if len(args) == 0 {
+		return new_int(1), ""
+	}
+
+	sum := 1.0
+	all_int := true
+
+	for item in args {
+		val, ok := get_float(item)
+		if !ok {
+			return nil, fmt.tprintf("%s is not a number or float", exp_to_string(item))
+		}
+		sum *= val
+
+		if _, is_int := item.(ExpNumber); !is_int {
+			all_int = false
+		}
+	}
+
+	return new_numeric_expr(sum, all_int), ""
+}
+
+@(private = "file")
+div_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
+	// (/ 0) -> division by zero
+	// (/ 10) -> 0.1
+	// (/ 10.5) -> 0.09523809523809523
+	// (/ 10 5) -> 2
+	// (/ 5 2) -> 2.5
+	if len(args) == 0 {
+		return nil, "invalid number of arguments: 0"
+	}
+
+	first_val, first_ok := get_float(args[0])
+	if !first_ok {
+		return nil, fmt.tprintf("%s is not a number or float", exp_to_string(args[0]))
+	}
+
+	if len(args) == 1 {
+		if first_val == 0 {
+			return nil, "division by zero"
+		}
+		return new_float(1.0 / first_val), ""
+	}
+
+	sum := first_val
+
+	for i := 1; i < len(args); i += 1 {
+		item := args[i]
+		val, ok := get_float(item)
+		if !ok {
+			return nil, fmt.tprintf("%s is not a number or float", exp_to_string(item))
+		}
+
+		if val == 0 {
+			return nil, "division by zero"
+		}
+
+		sum /= val
+	}
+
+	int_part, frac_part := math.modf(sum)
+
+	if frac_part == 0.0 {
+		return new_numeric_expr(int_part, true), ""
+	} else {
+		return new_numeric_expr(sum, false), ""
+	}
+}
+
+@(private = "file")
+gt_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
+	// (> 3 2 1) -> T
+	// (> 3 2 10) -> NIL
+	if len(args) == 0 {
+		return nil, "invalid number of arguments: 0"
+	}
+
+	current_left, ok := get_float(args[0])
+	if !ok {
+		return nil, fmt.tprintf("%s is not a number or float", exp_to_string(args[0]))
+	}
+
+	if len(args) == 1 {
+		return new_true(), ""
+	}
+
+	for i := 1; i < len(args); i += 1 {
+		right_val, right_ok := get_float(args[i])
+		if !right_ok {
+			return nil, fmt.tprintf("%s is not a number or float", exp_to_string(args[i]))
+		}
+
+		if current_left <= right_val {
+			return new_nil(), ""
+		}
+
+		current_left = right_val
+	}
+
+	return new_true(), ""
+}
+
+@(private = "file")
+gte_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
+	// (>= 3 2 2) -> T
+	// (>= 3 2 10) -> NIL
+	if len(args) == 0 {
+		return nil, "invalid number of arguments: 0"
+	}
+
+	current_left, ok := get_float(args[0])
+	if !ok {
+		return nil, fmt.tprintf("%s is not a number or float", exp_to_string(args[0]))
+	}
+
+	if len(args) == 1 {
+		return new_true(), ""
+	}
+
+	for i := 1; i < len(args); i += 1 {
+		right_val, right_ok := get_float(args[i])
+		if !right_ok {
+			return nil, fmt.tprintf("%s is not a number or float", exp_to_string(args[i]))
+		}
+
+		if current_left < right_val {
+			return new_nil(), ""
+		}
+
+		current_left = right_val
+	}
+
+	return new_true(), ""
+}
+
+@(private = "file")
+lt_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
+	// (< 1 2 3) -> T
+	// (< 1 3 2) -> NIL
+	if len(args) == 0 {
+		return nil, "invalid number of arguments: 0"
+	}
+
+	current_left, ok := get_float(args[0])
+	if !ok {
+		return nil, fmt.tprintf("%s is not a number or float", exp_to_string(args[0]))
+	}
+
+	if len(args) == 1 {
+		return new_true(), ""
+	}
+
+	for i := 1; i < len(args); i += 1 {
+		right_val, right_ok := get_float(args[i])
+		if !right_ok {
+			return nil, fmt.tprintf("%s is not a number or float", exp_to_string(args[i]))
+		}
+
+		if current_left >= right_val {
+			return new_nil(), ""
+		}
+
+		current_left = right_val
+	}
+
+	return new_true(), ""
+}
+
+@(private = "file")
+lte_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
+	// (<= 1 2 2) -> T
+	// (<= 1 3 2) -> NIL
+	if len(args) == 0 {
+		return nil, "invalid number of arguments: 0"
+	}
+
+	current_left, ok := get_float(args[0])
+	if !ok {
+		return nil, fmt.tprintf("%s is not a number or float", exp_to_string(args[0]))
+	}
+
+	if len(args) == 1 {
+		return new_true(), ""
+	}
+
+	for i := 1; i < len(args); i += 1 {
+		right_val, right_ok := get_float(args[i])
+		if !right_ok {
+			return nil, fmt.tprintf("%s is not a number or float", exp_to_string(args[i]))
+		}
+
+		if current_left > right_val {
+			return new_nil(), ""
+		}
+
+		current_left = right_val
+	}
+
+	return new_true(), ""
+}
+
+@(private = "file")
+equal_sign_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
+	// (= 2 2 2) -> T
+	// (= 2 2 3) -> NIL
+	// (= 2 2.0) -> T
+	if len(args) == 0 {
+		return nil, "invalid number of arguments: 0"
+	}
+
+	current_left, ok := get_float(args[0])
+	if !ok {
+		return nil, fmt.tprintf("%s is not a number or float", exp_to_string(args[0]))
+	}
+
+	// In SBCL, (= value) always returns T
+	if len(args) == 1 {
+		return new_true(), ""
+	}
+
+	for i := 1; i < len(args); i += 1 {
+		right_val, right_ok := get_float(args[i])
+		if !right_ok {
+			return nil, fmt.tprintf("%s is not a number or float", exp_to_string(args[i]))
+		}
+
+		if current_left != right_val {
+			return new_nil(), ""
+		}
+
+		current_left = right_val
+	}
+
+	return new_true(), ""
+}
+
 // @(private = "file")
 // sin :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
 // 	if len(args) != 1 {
