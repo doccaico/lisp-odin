@@ -1,12 +1,8 @@
 package main
 
-import "base:runtime"
 import "core:fmt"
-import "core:mem"
 import vmem "core:mem/virtual"
 import "core:os"
-
-is_repl := false
 
 HELP_MESSAGE :: `Usage: odin-lisp FILENAME
   -r, --repl:       REPL
@@ -31,7 +27,6 @@ main :: proc() {
 	global_env := standard_env()
 
 	if os.args[1] == "-r" || os.args[1] == "--repl" {
-		is_repl = true
 		repl("lisp-odin> ", global_env)
 		return
 	}
