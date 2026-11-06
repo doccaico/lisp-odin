@@ -21,8 +21,8 @@ standard_env :: proc() -> ^Env {
 	env.bindings["apply"] = new_proc(apply_proc, is_special = true)
 	env.bindings["map"] = new_proc(map_proc, is_special = true)
 
-	// env.bindings["+"] = new_proc(plus)
-	// env.bindings["-"] = new_proc(minus)
+	env.bindings["+"] = new_proc(add_proc, is_special = false)
+	env.bindings["-"] = new_proc(sub_proc, is_special = false)
 	// env.bindings["*"] = new_proc(mul)
 	// env.bindings["/"] = new_proc(div)
 	// env.bindings[">"] = new_proc(gt)
@@ -73,7 +73,7 @@ find_env :: proc(env: ^Env, name: string) -> ^Env {
 }
 
 @(private = "file")
-new_numeric_exp :: proc(flo: f64, is_all_int: bool) -> ^Exp {
+new_numeric_expr :: proc(flo: f64, is_all_int: bool) -> ^Exp {
 	if is_all_int {
 		return new_int(i64(flo))
 	}
@@ -81,18 +81,20 @@ new_numeric_exp :: proc(flo: f64, is_all_int: bool) -> ^Exp {
 }
 
 @(private = "file")
-get_float :: proc(exp: ^Exp) -> f64 {
+get_float :: proc(exp: ^Exp) -> (f64, bool) {
 	#partial switch e in exp {
 	case ExpNumber:
-		return f64(e.num)
+		return f64(e.num), true
 	case ExpFloat:
-		return e.flo
+		return e.flo, true
 	}
-	panic(fmt.tprintf("expected a number or float, but got: %s", exp_to_string(exp)))
+	return 0.0, false
 }
 
 @(private = "file")
 if_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
+	// (if T 1 2) -> 1
+	// (if NIL 1 2) -> 2
 	if len(args) != 3 {
 		return nil, fmt.tprintf(
 			"if requires exactly 3 arguments (test conseq alt), got %d",
@@ -121,6 +123,7 @@ if_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 
 @(private = "file")
 progn_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
+	// (progn (define x 1) (define y 2) (+ x y)) -> 3
 	if len(args) == 0 {
 		return new_nil(), ""
 	}
@@ -128,7 +131,7 @@ progn_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 	last_result: ^Exp = nil
 	for form in args {
 		err: string
-		last_result, err = eval(form, env) // ここで初めて評価する！
+		last_result, err = eval(form, env)
 		if err != "" {
 			return nil, err
 		}
@@ -139,7 +142,8 @@ progn_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 
 @(private = "file")
 define_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
-	// (define symbol exp)
+	// (define x 10)
+	// x -> 10
 	if len(args) != 2 {
 		return nil, "define requires exactly 2 argument"
 	}
@@ -172,14 +176,17 @@ quote_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 
 @(private = "file")
 setf_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
-	// (setf symbol exp)
+	// (setf x 1) -> undefined symbol for setf: x
+	// (define x 1)
+	// (setf x 10)
+	// x -> 10
 	if len(args) != 2 {
-		return nil, "set! requires exactly 2 arguments"
+		return nil, "setf requires exactly 2 arguments"
 	}
 	sym_expr, ok := args[0].(ExpSymbol)
 	if !ok {
 		return nil, fmt.tprintf(
-			"the argument to set!, %s, is not a symbol",
+			"the argument to setf, %s, is not a symbol",
 			exp_to_string(args[0]),
 		)
 	}
@@ -189,7 +196,7 @@ setf_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 
 	target_env := find_env(env, set_sym)
 	if target_env == nil {
-		return nil, fmt.tprintf("undefined symbol for set!: %s", set_sym)
+		return nil, fmt.tprintf("undefined symbol for setf: %s", set_sym)
 	}
 
 	val, set_err := eval(set_expr, env)
@@ -204,7 +211,7 @@ setf_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 
 @(private = "file")
 lambda_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
-	// (lambda (params...) body...)
+	// ((lambda (a) (+ a 10)) 1) -> 11
 	if len(args) < 2 {
 		return nil, "lambda requires at least a parameter list and a body"
 	}
@@ -243,8 +250,7 @@ lambda_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 
 @(private = "file")
 apply_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
-	// (apply proc list)
-	// Example: (apply (lambda (a b) a) (list 1 2)) -> 1
+	// (apply (lambda (a b) a) (list 1 2)) -> 1
 	if len(args) != 2 {
 		return nil, "apply requires exactly 2 arguments (a procedure/lambda and a list)"
 	}
@@ -285,7 +291,7 @@ apply_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 
 @(private = "file")
 map_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
-	// (map proc list)
+	// (map (lambda (a) (+ a 10)) (list 0 1 2)) -> (10 11 12)
 	if len(args) != 2 {
 		return nil, "map requires exactly 2 arguments (a procedure/lambda and a list)"
 	}
@@ -331,54 +337,72 @@ map_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
 	return current_cdr, ""
 }
 
+@(private = "file")
+add_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
+	// (+) -> 0
+	// (+ 10) -> 10
+	// (+ 10 10 10) -> 30
+	if len(args) == 0 {
+		return new_int(0), ""
+	}
 
-// @(private = "file")
-// plus :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
-// 	if len(args) == 0 {
-// 		return new_int(0), ""
-// 	}
-// 	sum := get_float(args[0])
-// 	all_int: bool
-// 	if _, ok := args[0].(ExpNumber); ok {
-// 		all_int = true
-// 	}
-//
-// 	for i in 1 ..< len(args) {
-// 		sum += get_float(args[i])
-// 		if _, ok := args[0].(ExpNumber); !ok {
-// 			all_int = false
-// 		}
-// 	}
-//
-// 	return new_numeric_exp(sum, all_int), ""
-// }
-//
-// @(private = "file")
-// minus :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
-// 	if len(args) == 0 {
-// 		return nil, "invalid number of arguments: 0"
-// 	}
-// 	if len(args) == 1 { 	// Invert the sign if there is a single argument
-// 		_, is_number := args[0].(ExpNumber)
-// 		return new_numeric_exp(-get_float(args[0]), is_number), ""
-// 	}
-//
-// 	sum := get_float(args[0])
-// 	all_int: bool
-// 	if _, is_number := args[0].(ExpNumber); is_number {
-// 		all_int = true
-// 	}
-//
-// 	for i in 1 ..< len(args) {
-// 		sum -= get_float(args[i])
-// 		if _, is_number := args[0].(ExpNumber); !is_number {
-// 			all_int = false
-// 		}
-// 	}
-//
-// 	return new_numeric_exp(sum, all_int), ""
-// }
-//
+	sum := 0.0
+	all_int := true
+
+	for item in args {
+		val, ok := get_float(item)
+		if !ok {
+			return nil, fmt.tprintf("%s is not a number or float", exp_to_string(item))
+		}
+		sum += val
+
+		if _, is_int := item.(ExpNumber); !is_int {
+			all_int = false
+		}
+	}
+
+	return new_numeric_expr(sum, all_int), ""
+}
+
+@(private = "file")
+sub_proc :: proc(args: [dynamic]^Exp, env: ^Env) -> (^Exp, string) {
+	// (- 10) -> -10
+	// (- 10 5 2) -> 3
+	if len(args) == 0 {
+		return nil, "invalid number of arguments: 0"
+	}
+
+	first_val: f64
+	first_ok: bool
+	first_val, first_ok = get_float(args[0])
+	if !first_ok {
+		return nil, fmt.tprintf("%s is not a number or float", exp_to_string(args[0]))
+	}
+
+	_, all_int := args[0].(ExpNumber)
+	if len(args) == 1 {
+		// Invert the sign if there is a single argument
+		return new_numeric_expr(-first_val, all_int), ""
+	}
+
+	sum := first_val
+
+	for i := 1; i < len(args); i += 1 {
+		item := args[i]
+		val, ok := get_float(item)
+		if !ok {
+			return nil, fmt.tprintf("%s is not a number or float", exp_to_string(item))
+		}
+		sum -= val
+
+		if _, is_int := item.(ExpNumber); !is_int {
+			all_int = false
+		}
+	}
+
+	return new_numeric_expr(sum, all_int), ""
+}
+
 // @(private = "file")
 // mul :: proc(args: [dynamic]^Exp) -> (^Exp, string) {
 // 	if len(args) == 0 {
