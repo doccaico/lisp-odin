@@ -1,6 +1,5 @@
 package main
 
-import "core:fmt"
 import "core:strconv"
 import "core:strings"
 
@@ -159,20 +158,20 @@ read_list :: proc(r: ^Reader) -> (^Expr, string) {
 	for {
 		skip_whitespace(r, skip_comment = true)
 
-		// 閉じカッコが見つかったらループ終了
+		// Terminate loop if a closing parenthesis is found
 		if r.ch == ')' {
-			next_char(r) // ')' を消費
+			next_char(r) // Consume ')'
 			break
 		}
 
-		// 入力の終端に達してしまった場合はエラー
+		// Error if the end of input is reached unexpectedly
 		if r.ch == '\x00' {
 			return nil, "Expected closing parenthesis ')', but reached EOF"
 		}
 
-		// ドット対（ドット表現）の処理（オプション：必要なければこのifブロックは削除してOKです）
+		// Handle dotted pairs (dot notation) - Optional: you can delete this if not needed
 		if r.ch == '.' {
-			// 次の文字を確認するため、先読み or 進める
+			// Check next character by peeking or advancing
 			next_char(r)
 			skip_whitespace(r, skip_comment = true)
 
@@ -180,7 +179,7 @@ read_list :: proc(r: ^Reader) -> (^Expr, string) {
 				return nil, "S-expression syntax error: unexpected ')' after '.'"
 			}
 
-			// ドットの後は、cdr となる最後の1要素だけを読み込む
+			// After the dot, read only the final element which serves as the cdr
 			final_expr, err := read(r)
 			if err != "" {
 				return nil, err
@@ -193,7 +192,7 @@ read_list :: proc(r: ^Reader) -> (^Expr, string) {
 
 			has_dot = true
 			var_cdr = final_expr
-			next_char(r) // ')' を消費
+			next_char(r) // Consume ')'
 			break
 		}
 
